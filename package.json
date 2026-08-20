@@ -1,0 +1,70 @@
+{
+  "name": "@fett/sql-engine",
+  "version": "0.1.0",
+  "description": "SQL 兼容层：以 SQL 为统一查询语言的数据库兼容层（MySQL 5/8 / PostgreSQL / SQLite / MongoDB），支持 Node ≥ 22.5 与 Bun，内置连接池、任务队列（多线程）、结构检出",
+  "license": "ISC",
+  "author": "chrissong1994 <18557511748@163.com>",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.5.0",
+    "bun": ">=1.1.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run test/unit",
+    "test:integration": "vitest run test/integration",
+    "test:bun": "bun test test/unit test/integration"
+  },
+  "peerDependencies": {
+    "@synatic/noql": ">=5",
+    "knex": ">=3",
+    "mongodb": ">=6",
+    "mysql2": ">=3",
+    "node-sql-parser": ">=5",
+    "pg": ">=8"
+  },
+  "peerDependenciesMeta": {
+    "@synatic/noql": { "optional": true },
+    "knex": { "optional": true },
+    "mongodb": { "optional": true },
+    "mysql2": { "optional": true },
+    "node-sql-parser": { "optional": true },
+    "pg": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.11"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.5.1",
+      "onFail": "download"
+    }
+  },
+  "keywords": [
+    "sql",
+    "database",
+    "mysql",
+    "postgresql",
+    "sqlite",
+    "mongodb",
+    "compatibility-layer"
+  ]
+}
