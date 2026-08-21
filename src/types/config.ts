@@ -108,6 +108,12 @@ export interface BaseConfig {
   queue?: TaskQueueOptions;
   /** 结构检出选项（作为各方法默认值）——注意与 PG 的 schema（schema 名）不冲突 */
   introspect?: SchemaOptions;
+  /** 只读模式：拒绝一切非 SELECT 语句（数据库层强制只读，替代关键词黑名单） */
+  selectOnly?: boolean;
+  /** 查询结果缓存（仅幂等 SELECT；DML/DDL 后整库失效） */
+  cache?: QueryCacheOptions;
+  /** 日志选项（慢查询等） */
+  logging?: LoggingOptions;
   [key: string]: unknown;
 }
 

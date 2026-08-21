@@ -79,6 +79,74 @@ describe('selectOnly 只读模式', () => {
   });
 });
 
+describe('selectOnly 只读模式（facade runSql 路径）', () => {
+  test('拒绝 DML/DDL：runSql → READ_ONLY', async () => {
+    const cfg = { type: 'sqlite' as const, database: ':memory:', selectOnly: true };
+    await expect(
+      runSql(cfg, { sql: 'INSERT INTO t (v) VALUES (1)' }),
+    ).rejects.toMatchObject({ code: 'READ_ONLY' });
+    await expect(runSql(cfg, { sql: 'CREATE TABLE t (id INT)' })).rejects.toMatchObject({
+      code: 'READ_ONLY',
+    });
+    await expect(runSql(cfg, { sql: 'DELETE FROM t' })).rejects.toMatchObject({
+      code: 'READ_ONLY',
+    });
+  });
+
+  test('允许 SELECT：可正常读（同指纹 :memory: 共享数据）', async () => {
+    const writable = createClient({ type: 'sqlite', database: ':memory:' });
+    await writable.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER)');
+    await writable.execute('INSERT INTO t (v) VALUES (1), (2)');
+
+    const res = await runSql(
+      { type: 'sqlite', database: ':memory:', selectOnly: true },
+      { sql: 'SELECT * FROM t', offset: 0, limit: 10 },
+    );
+    expect(res.rows).toHaveLength(2);
+
+    await writable.destroy();
+  });
+
+  test('selectOnly: false（默认）facade 可正常写', async () => {
+    const cfg = { type: 'sqlite' as const, database: ':memory:' };
+    await runSql(cfg, { sql: 'CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER)' });
+    const ins = await runSql(cfg, { sql: 'INSERT INTO t (v) VALUES (1)' });
+    expect(ins.affectedRows).toBe(1);
+    const res = await runSql(cfg, { sql: 'SELECT * FROM t' });
+    expect(res.rows).toHaveLength(1);
+  });
+});
+
+describe('查询结果缓存（facade runSql 路径）', () => {
+  test('缓存命中：写操作后失效（同一指纹共享缓存）', async () => {
+    const cfg = { type: 'sqlite' as const, database: ':memory:' };
+    const cacheCfg = { ...cfg, cache: { enabled: true } };
+    await runSql(cfg, { sql: 'CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER)' });
+    await runSql(cfg, { sql: 'INSERT INTO t (v) VALUES (1)' });
+
+    const r1 = await runSql(cacheCfg, { sql: 'SELECT * FROM t' });
+    expect(r1.rows).toHaveLength(1);
+
+    // 写操作（走同指纹 cacheCfg）→ 缓存失效
+    await runSql(cacheCfg, { sql: 'INSERT INTO t (v) VALUES (2)' });
+    const r2 = await runSql(cacheCfg, { sql: 'SELECT * FROM t' });
+    expect(r2.rows).toHaveLength(2);
+  });
+
+  test('不同 SQL / 不同参数不串缓存', async () => {
+    const cacheCfg = { type: 'sqlite' as const, database: ':memory:', cache: { enabled: true } };
+    await runSql(cacheCfg, { sql: 'CREATE TABLE t (id INTEGER PRIMARY KEY, v INTEGER)' });
+    await runSql(cacheCfg, { sql: 'INSERT INTO t (v) VALUES (1), (2)' });
+
+    const a = await runSql(cacheCfg, { sql: 'SELECT * FROM t WHERE v = ?', params: [1] });
+    const b = await runSql(cacheCfg, { sql: 'SELECT * FROM t WHERE v = ?', params: [2] });
+    expect(a.rows).toHaveLength(1);
+    expect(b.rows).toHaveLength(1);
+    expect(a.rows[0].v).toBe(1);
+    expect(b.rows[0].v).toBe(2);
+  });
+});
+
 describe('runSql 返回 duration', () => {
   test('client.query 返回 duration（数字 ms）', async () => {
     const db = makeDb();

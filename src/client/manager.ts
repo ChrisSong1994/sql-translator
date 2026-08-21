@@ -15,7 +15,8 @@ interface RegisteredClient {
 }
 
 export class ClientManager {
-  private registry: PoolRegistry;
+  /** 底层池注册表（只读暴露）：供自定义 SqlEngine 绑定 / 监控使用 */
+  readonly registry: PoolRegistry;
   private byId = new Map<string, RegisteredClient>();
   private maxClients: number;
 

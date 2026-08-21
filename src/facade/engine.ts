@@ -10,12 +10,16 @@ import { defaultRegistry, type PoolRegistry } from '../client/registry.js';
 import type { ConnectionConfig, SchemaOptions } from '../types/config.js';
 import { roundDuration, type ExecResult, type ExplainResult, type Field, type RunSqlRequest, type TestResult } from '../types/result.js';
 import { maybeLogSlowQuery } from '../core/slow-query.js';
+import { detectStatementType } from '../core/sql/statement.js';
+import { TtlCache, queryCacheKey } from '../core/cache.js';
 import type { TableSchema } from '../types/schema.js';
 import type { IntrospectTask } from '../types/task.js';
 import { wrapTask } from '../types/task.js';
 
 export class SqlEngine {
   private registry: PoolRegistry;
+  /** 查询结果缓存：按 config 指纹隔离（DML/DDL 后整库失效） */
+  private queryCaches = new Map<string, TtlCache<string, ExecResult>>();
 
   constructor(registry?: PoolRegistry) {
     this.registry = registry ?? defaultRegistry;
@@ -26,19 +30,19 @@ export class SqlEngine {
   }
 
   /** 执行 SQL：SELECT → QueryResult，DML → WriteResult（池按 config 指纹共享）
-   * 返回结果统一携带 duration（执行耗时 ms） */
+   * 返回结果统一携带 duration（执行耗时 ms）
+   * selectOnly 只读模式：拒绝一切非 SELECT 语句（与 DbClient 行为一致）
+   * 查询结果缓存：仅幂等 SELECT；写操作后整库失效 */
   async runSql(config: ConnectionConfig, request: RunSqlRequest): Promise<ExecResult> {
     const start = performance.now();
     const driver = getDriver(config.type);
-    const handle = await this.registry.getPool(config);
-    try {
-      const result = await driver.runSql(handle, request);
+    const finish = (result: ExecResult): ExecResult => {
       const durationMs = performance.now() - start;
       if (result && typeof result === 'object') {
         (result as { duration?: number }).duration = roundDuration(durationMs);
       }
       // 慢查询日志
-      maybeLogSlowQuery((config as any).logging, {
+      maybeLogSlowQuery(config.logging, {
         dialect: driver.dialect,
         sql: request.sql,
         params: request.params,
@@ -46,9 +50,60 @@ export class SqlEngine {
         fingerprint: configKey(config),
       });
       return result;
+    };
+
+    // selectOnly 只读护栏（数据库层强制只读，替代关键词黑名单）
+    if (config.selectOnly) {
+      const type = detectStatementType(request.sql);
+      if (type !== 'SELECT') {
+        throw new SqlEngineError(
+          'READ_ONLY',
+          `只读模式（selectOnly: true）禁止 ${type} 语句，仅允许 SELECT`,
+        );
+      }
+    }
+
+    const cacheOpts = config.cache;
+    const cache = cacheOpts?.enabled ? this.getQueryCache(config) : null;
+    const type = detectStatementType(request.sql);
+
+    // 幂等 SELECT：命中缓存直接返回（duration 含缓存查找耗时）
+    if (cache && type === 'SELECT') {
+      const key = queryCacheKey(configKey(config), request.sql, request);
+      const hit = cache.get(key);
+      if (hit !== undefined) return finish(hit);
+      const handle = await this.registry.getPool(config);
+      try {
+        const result = await driver.runSql(handle, request);
+        cache.set(key, structuredClone(result));
+        return finish(result);
+      } finally {
+        this.registry.release(configKey(config));
+      }
+    }
+
+    const handle = await this.registry.getPool(config);
+    try {
+      const result = await driver.runSql(handle, request);
+      // 写操作后粗粒度失效（本 config 指纹缓存全清）
+      if (cache && type !== 'SELECT') {
+        cache.clear();
+      }
+      return finish(result);
     } finally {
       this.registry.release(configKey(config));
     }
+  }
+
+  private getQueryCache(config: ConnectionConfig): TtlCache<string, ExecResult> {
+    const fingerprint = configKey(config);
+    let cache = this.queryCaches.get(fingerprint);
+    if (!cache) {
+      const opts = config.cache;
+      cache = new TtlCache<string, ExecResult>(opts?.ttlMs ?? 60000, opts?.maxEntries ?? 1000);
+      this.queryCaches.set(fingerprint, cache);
+    }
+    return cache;
   }
 
   async getTableList(config: ConnectionConfig): Promise<string[]> {
@@ -156,6 +211,7 @@ export class SqlEngine {
   /** 全局清理 */
   async destroyAll(): Promise<void> {
     await this.registry.destroyAll();
+    this.queryCaches.clear();
   }
 
   private async withHandle<T>(
