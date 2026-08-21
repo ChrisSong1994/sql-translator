@@ -253,7 +253,7 @@ describe('错误路径', () => {
   });
 
   test('未注册方言 client → 创建不抛错，首次操作 UNSUPPORTED_DIALECT', async () => {
-    const c = createClient({ type: 'mysql', host: 'h', database: 'd' } as any);
+    const c = createClient({ type: 'oracle', host: 'h', database: 'd' } as any);
     await expect(c.query('SELECT 1')).rejects.toMatchObject({ code: 'UNSUPPORTED_DIALECT' });
   });
 

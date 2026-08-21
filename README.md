@@ -2,7 +2,7 @@
 
 以 SQL 为统一查询语言的数据库兼容层。支持 **MySQL 5.7 / 8.x / PostgreSQL / SQLite / MongoDB**（MongoDB 为 SQL→Query 翻译），双运行时 **Node ≥ 22.5 / Bun ≥ 1.1**，内置连接池、任务队列（多线程）、结构 JSON 检出。
 
-> 状态：M1 已落地（框架 + core + Client API + ClientManager + 任务队列 + SQLite 垂直切片）；mysql/pg/mongo 驱动在 M2/M3 提供。
+> 状态：**M1 框架 + M2 MySQL 已完成**（双运行时 Node ≥ 22.5 / Bun ≥ 1.1 全部测试通过）；M3（PostgreSQL/MongoDB）进行中。
 
 ## 快速开始
 
@@ -26,6 +26,41 @@ const json = await db.exportSchemaAsJson();       // 全库结构 → JSON 字�
 
 await db.destroy();  // 释放引用（共享池引用归零后回收）
 ```
+
+## MySQL（5.7 / 8.x 双版本）
+
+```ts
+const db = createClient({
+  type: 'mysql',
+  host: '127.0.0.1', port: 3306,
+  user: 'root', password: '...', database: 'test',
+  version: 'auto',          // '5' | '8' | 'auto'（auto = SELECT VERSION() 探测）
+  dml: { requireWhereForUpdateDelete: true },
+});
+
+await db.query('SELECT * FROM users WHERE age > ?', [18]);   // 自动分页包装
+await db.execute('UPDATE users SET age = ? WHERE id = ?', [31, 1]);
+const schema = await db.getTableSchema('users');             // 结构 JSON
+```
+
+- 分页包装按版本能力矩阵自动选择：MySQL 8 用 CTE，5.7 用派生表
+- 无 WHERE 的 UPDATE/DELETE 默认拦截（DML_BLOCKED）
+
+## 本地测试数据库（docker compose）
+
+```bash
+pnpm db:up      # 启动 mysql5(33061) / mysql8(33062)
+pnpm db:init    # 初始化种子数据（utf8mb4 连接，避免中文注释乱码）
+
+# 跑 MySQL 集成测试（含 5.7/8 双版本）
+SQLENGINE_TEST_MYSQL5_HOST=127.0.0.1 SQLENGINE_TEST_MYSQL5_PORT=33061 \
+SQLENGINE_TEST_MYSQL5_USER=root SQLENGINE_TEST_MYSQL5_PASSWORD=root \
+SQLENGINE_TEST_MYSQL8_HOST=127.0.0.1 SQLENGINE_TEST_MYSQL8_PORT=33062 \
+SQLENGINE_TEST_MYSQL8_USER=root SQLENGINE_TEST_MYSQL8_PASSWORD=root \
+pnpm test:mysql
+```
+
+> 国内网络下镜像拉取慢时可用镜像前缀：`MYSQL5_IMAGE=docker.m.daocloud.io/library/mysql:5.7 MYSQL8_IMAGE=docker.m.daocloud.io/library/mysql:8.0 pnpm db:up`
 
 ## 多数据源平台
 

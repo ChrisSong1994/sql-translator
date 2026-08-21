@@ -1,6 +1,6 @@
 /**
  * SqlEngine：无状态统一入口（多数据源场景，方法级传入 config）
- * 与 WizBuild 现有 runSql(configuration, {...}) 调用方式同构
+ * 现有 runSql(configuration, {...}) 调用方式同构
  */
 import { SqlEngineError } from '../errors.js';
 import { configKey } from '../core/config.js';

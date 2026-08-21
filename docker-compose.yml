@@ -1,0 +1,39 @@
+# 测试数据库编排（M2：MySQL 5.7 / 8.0；M3 增加 postgres / mongodb）
+# 端口全部使用非常规映射，避免与本地已装数据库冲突
+# 启动：docker compose up -d --wait && node scripts/init-fixtures.mjs
+# （种子数据由脚本以 utf8mb4 初始化，不使用 docker-entrypoint 挂载——避免 latin1 乱码）
+services:
+  mysql5:
+    image: ${MYSQL5_IMAGE:-mysql:5.7}
+    # MySQL 5.7 官方镜像无 arm64，经 Docker Desktop Rosetta 模拟
+    platform: linux/amd64
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: testdb
+      MYSQL_USER: test
+      MYSQL_PASSWORD: test
+    ports:
+      - "33061:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  mysql8:
+    image: ${MYSQL8_IMAGE:-mysql:8.0}
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: testdb
+      MYSQL_USER: test
+      MYSQL_PASSWORD: test
+    ports:
+      - "33062:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s

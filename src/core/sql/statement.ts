@@ -80,9 +80,11 @@ const ANY_QUOTED_IDENTIFIER = `(?:"[^"]+"|'[^']+'|\`[^\`]+\`)`;
 const BARE_IDENTIFIER = '[a-zA-Z_\\u4e00-\\u9fff][a-zA-Z0-9_\\u4e00-\\u9fff]*';
 const IDENTIFIER = `(?:${ANY_QUOTED_IDENTIFIER}|${BARE_IDENTIFIER})`;
 
-/** 从 SQL 中提取引用的表名（含 schema-qualified）
+/** 
+ * 从 SQL 中提取引用的表名（含 schema-qualified）
  * 注意：在原始 SQL 上做正则（不剥离字符串），与引号标识符/中文表名兼容；
- * 字符串字面量内误匹配的风险与 WizBuild 现有实现一致（可接受） */
+ * 字符串字面量内误匹配的风险 
+ * */
 export function extractTableNamesFromSql(sql: string): Set<string> {
   const tableNames = new Set<string>();
   const s = sql;
