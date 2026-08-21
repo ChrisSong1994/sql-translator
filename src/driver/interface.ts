@@ -4,7 +4,7 @@
  * driver 方法只接收已绑定 config 的 handle，不做重复缓存
  */
 import type { ConnectionConfig, SchemaOptions } from '../types/config.js';
-import type { ExecResult, Field, RunSqlRequest, TestResult } from '../types/result.js';
+import type { ExecResult, ExplainResult, Field, RunSqlRequest, TestResult } from '../types/result.js';
 import type { TableSchema } from '../types/schema.js';
 import type { IntrospectTask } from '../types/task.js';
 import type { TransactionHandle } from '../types/transaction.js';
@@ -45,6 +45,8 @@ export interface SqlDriver {
   getRowsCount(pool: PoolHandle, table: string, whereClause?: string): Promise<number>;
   getTableSchema(pool: PoolHandle, table: string, opts?: SchemaOptions): Promise<TableSchema>;
   getAllTableSchemas?(pool: PoolHandle, opts?: SchemaOptions): IntrospectTask<TableSchema[]>;
+  /** EXPLAIN 执行计划（方言差异：SQLite QUERY PLAN / MySQL / PG / Mongo explain） */
+  explain?(pool: PoolHandle, request: RunSqlRequest): Promise<ExplainResult>;
   /** 事务：fn 内所有查询在同一事务/连接内执行；fn 抛错自动回滚 */
   withTransaction?<T>(pool: PoolHandle, fn: (tx: TransactionHandle) => Promise<T>): Promise<T>;
 }

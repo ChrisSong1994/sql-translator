@@ -41,8 +41,15 @@ jobs:
       - name: Start test databases
         run: docker compose up -d --wait
 
+      - name: Init Mongo replica set
+        run: node scripts/init-mongo-rs.mjs
+
+      - name: Wait for db ports
+        run: node scripts/wait-for-db.mjs
+
       - name: Init fixtures
-        run: pnpm db:init
+        run: |
+          pnpm db:init || (sleep 15 && pnpm db:init)   # 首次失败重试一次（mysql 冷启动可能断连）
 
       - name: Integration tests (Node)
         if: matrix.runtime == 'node'
@@ -61,10 +68,11 @@ jobs:
           SQLENGINE_TEST_PG_USER: test
           SQLENGINE_TEST_PG_PASSWORD: test
           SQLENGINE_TEST_MONGO_URI: mongodb://127.0.0.1:27017
+          SQLENGINE_TEST_MONGO_RS_URI: mongodb://127.0.0.1:27018
 
       - name: Integration tests (Bun)
         if: matrix.runtime == 'bun'
-        run: bun test test/unit test/integration
+        run: pnpm test:bun   # 含 --timeout 30000（mongo-rs 副本集首连可能 >5s）
         env:
           SQLENGINE_TEST_MYSQL5_HOST: 127.0.0.1
           SQLENGINE_TEST_MYSQL5_PORT: 33061
@@ -79,6 +87,7 @@ jobs:
           SQLENGINE_TEST_PG_USER: test
           SQLENGINE_TEST_PG_PASSWORD: test
           SQLENGINE_TEST_MONGO_URI: mongodb://127.0.0.1:27017
+          SQLENGINE_TEST_MONGO_RS_URI: mongodb://127.0.0.1:27018
 
       - name: Teardown databases
         if: always()

@@ -11,6 +11,7 @@ import type { SqlDriver, PoolHandle } from '../interface.js';
 import type { MongodbConfig, SchemaOptions } from '../../types/config.js';
 import type {
   ExecResult,
+  ExplainResult,
   Field,
   QueryResult,
   RunSqlRequest,
@@ -45,6 +46,29 @@ export class MongoDriver implements SqlDriver {
       throw new SqlEngineError('UNSUPPORTED_DIALECT', `mongodb 驱动收到 ${config.type} 配置`);
     }
     return new MongoPoolHandle(config);
+  }
+
+  /** EXPLAIN 执行计划（noql 翻译后 find/aggregate explain） */
+  async explain(pool: PoolHandle, request: RunSqlRequest): Promise<ExplainResult> {
+    const handle = pool as MongoPoolHandle;
+    const db = await handle.getDb();
+    const sql = normalizeSql(request.sql);
+    const parsed = translateSelect(sql);
+    let plan: any;
+    if (parsed.type === 'query' && parsed.collection) {
+      plan = await db
+        .collection(parsed.collection)
+        .find(parsed.query ?? {}, { projection: toMongoProjection(parsed.projection) })
+        .explain('executionStats');
+    } else if (parsed.type === 'aggregate' && parsed.collections?.[0]) {
+      plan = await db
+        .collection(parsed.collections[0])
+        .aggregate(parsed.pipeline ?? [])
+        .explain('executionStats');
+    } else {
+      throw new SqlEngineError('QUERY_FAILED', `无法 explain: ${sql}`);
+    }
+    return { dialect: 'mongodb', sql, params: request.params, plan: [plan] };
   }
 
   // ==================== 连接测试 ====================

@@ -59,6 +59,16 @@ export interface TestResult {
   version?: string;
 }
 
+/** EXPLAIN 执行计划结果 */
+export interface ExplainResult {
+  dialect: string;
+  sql: string;
+  params?: unknown[];
+  /** 执行计划：SQL 库为计划行数组（SQLite detail 文本 / MySQL 表格 / PG QUERY PLAN），Mongo 为 explain 对象 */
+  plan: any[];
+  duration?: number;
+}
+
 /** 毫秒保留 2 位小数 */
 export function roundDuration(ms: number): number {
   return Math.round(ms * 100) / 100;

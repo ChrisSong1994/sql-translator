@@ -33,7 +33,7 @@ export * from './core/cache.js';
 
 import { SqlEngine } from './facade/engine.js';
 import type { ConnectionConfig, SchemaOptions } from './types/config.js';
-import type { ExecResult, Field, RunSqlRequest, TestResult } from './types/result.js';
+import type { ExecResult, ExplainResult, Field, RunSqlRequest, TestResult } from './types/result.js';
 import type { TableSchema } from './types/schema.js';
 import type { IntrospectTask } from './types/task.js';
 
@@ -47,6 +47,9 @@ export const testConnection = (config: ConnectionConfig): Promise<TestResult> =>
 
 export const runSql = (config: ConnectionConfig, req: RunSqlRequest): Promise<ExecResult> =>
   defaultEngine.runSql(config, req);
+
+export const explain = (config: ConnectionConfig, sql: string, params?: unknown[]): Promise<ExplainResult> =>
+  defaultEngine.explain(config, sql, params);
 
 export const getTableList = (config: ConnectionConfig): Promise<string[]> =>
   defaultEngine.getTableList(config);

@@ -9,6 +9,10 @@ import net from 'node:net';
 const DEFAULTS = [
   { name: 'mysql5', host: '127.0.0.1', port: 33061 },
   { name: 'mysql8', host: '127.0.0.1', port: 33062 },
+  { name: 'mariadb', host: '127.0.0.1', port: 33063 },
+  { name: 'postgres', host: '127.0.0.1', port: 54321 },
+  { name: 'mongodb', host: '127.0.0.1', port: 27017 },
+  { name: 'mongo-rs', host: '127.0.0.1', port: 27018 },
 ];
 
 const timeoutSec = Number(process.argv[2] ?? 90);

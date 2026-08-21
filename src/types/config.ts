@@ -51,6 +51,26 @@ export interface DmlOptions {
   returning?: boolean;
 }
 
+/** 慢查询日志条目 */
+export interface SlowQueryEntry {
+  type: 'slow-query';
+  dialect: string;
+  sql: string;
+  params?: unknown[];
+  durationMs: number;
+  fingerprint?: string;
+  /** ISO 时间 */
+  at: string;
+}
+
+/** 日志选项（慢查询等） */
+export interface LoggingOptions {
+  /** 慢查询阈值 ms；设置后执行耗时超过该值的查询触发日志（默认不记录） */
+  slowQueryMs?: number;
+  /** 自定义日志函数（默认 console.warn） */
+  logFn?: (entry: SlowQueryEntry) => void;
+}
+
 /** 查询结果缓存选项（仅缓存幂等 SELECT） */
 export interface QueryCacheOptions {
   /** 是否启用，默认 false */

@@ -34,6 +34,7 @@ import type { ColumnSchema, ForeignKeySchema, IndexSchema, TableSchema } from '.
 import type { IntrospectTask } from '../../types/task.js';
 import { createTask } from '../../types/task.js';
 import type { TransactionHandle } from '../../types/transaction.js';
+import type { ExplainResult } from '../../types/result.js';
 import { getSqliteBackend, releaseSqliteBackend } from './store.js';
 import type { SqliteBackend } from './backend.js';
 
@@ -191,6 +192,17 @@ export class SqliteDriver implements SqlDriver {
       const e = err as Error;
       return { success: false, message: `SQLite connection test failed: ${e.message}` };
     }
+  }
+
+  /** EXPLAIN QUERY PLAN 执行计划 */
+  async explain(pool: PoolHandle, request: RunSqlRequest): Promise<ExplainResult> {
+    const handle = pool as SqlitePoolHandle;
+    const backend = await handle.getBackend();
+    const sql = normalizeSql(request.sql);
+    const rows = backend
+      .prepare(`EXPLAIN QUERY PLAN ${sql}`)
+      .all(...(request.params ?? [])) as any[];
+    return { dialect: 'sqlite', sql, params: request.params, plan: rows };
   }
 
   async runSql(pool: PoolHandle, request: RunSqlRequest): Promise<ExecResult> {

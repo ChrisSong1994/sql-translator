@@ -36,7 +36,9 @@
     "db:down": "docker compose down",
     "db:init": "node scripts/init-fixtures.mjs",
     "prepublishOnly": "pnpm build && pnpm test:unit",
-    "release": "pnpm test && pnpm build && pnpm publish --access public"
+    "release": "pnpm test && pnpm build && pnpm publish --access public",
+    "docs:api": "typedoc",
+    "docs:dev": "typedoc --watch"
   },
   "peerDependencies": {
     "@synatic/noql": ">=5",
@@ -68,6 +70,8 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "bson": "7.3.2",
+    "typedoc": "^0.28.20",
     "typescript": "^5.8.3",
     "vitest": "^4.1.11"
   },
