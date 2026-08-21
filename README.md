@@ -188,4 +188,5 @@ GitHub Actions（.github/workflows/test.yml）：Node + Bun 双运行时，docke
 
 ## 文档
 
-架构设计见 [.docs/architecture.md](.docs/architecture.md)。
+- **使用文档**：[USAGE.md](USAGE.md)（连接配置 / SQL 执行 / 连接池 / 事务 / 缓存 / 结构检出 / 错误码 等）
+- **架构设计**：[.docs/architecture.md](.docs/architecture.md)
