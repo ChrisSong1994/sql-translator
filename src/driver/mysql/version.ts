@@ -51,12 +51,48 @@ export async function detectMysqlVersion(k: Knex): Promise<MysqlCapabilities> {
   return parseMysqlVersion(version);
 }
 
-/** 按 config.version 解析能力（'5' | '8' 强制；'auto'/undefined 走探测） */
+/** 解析 MariaDB VERSION() → 能力矩阵（10.2+ CTE / 10.3+ 窗口函数 / 10.2+ JSON） */
+export function parseMariaDbVersion(version: string): MysqlCapabilities {
+  // MariaDB 常见格式：'10.11.4-MariaDB'、'5.5.5-10.6.12-MariaDB-0+deb11u1'
+  const m = String(version || '').match(/(\d+)\.(\d+)\.(\d+)/);
+  if (!m) return { major: 0, supportsCTE: false, supportsWindowFunctions: false, supportsJson: false };
+  const major = Number(m[1]);
+  const minor = Number(m[2]);
+  return {
+    major,
+    supportsCTE: major >= 10 && minor >= 2,
+    supportsWindowFunctions: major >= 10 && minor >= 3,
+    supportsJson: major >= 10 && minor >= 2,
+  };
+}
+
+/** 探测 VERSION() 原始字符串 */
+export async function detectVersionString(k: Knex): Promise<string> {
+  const res = (await k.raw('SELECT VERSION() AS v')) as unknown[];
+  const rows = (Array.isArray(res) ? res[0] : res) as Array<{ v?: string }>;
+  return rows?.[0]?.v ?? '';
+}
+
+/** 按 config.version 解析能力（强制模式 / auto 探测；isMariaDb 决定解析器） */
 export async function resolveMysqlCapabilities(
   k: Knex,
-  versionChoice: '5' | '8' | 'auto' | undefined,
+  versionChoice: '5' | '8' | 'auto' | '10' | '11' | undefined,
+  isMariaDb = false,
 ): Promise<MysqlCapabilities> {
-  if (versionChoice === '5') return MYSQL5_CAPS;
-  if (versionChoice === '8') return MYSQL8_CAPS;
-  return detectMysqlVersion(k);
+  if (!isMariaDb) {
+    if (versionChoice === '5') return MYSQL5_CAPS;
+    if (versionChoice === '8') return MYSQL8_CAPS;
+    return detectMysqlVersion(k);
+  }
+  // MariaDB：强制模式 10/11 走对应矩阵，auto 探测
+  const mariaMajor = versionChoice === '10' ? 10 : versionChoice === '11' ? 11 : 0;
+  if (mariaMajor) {
+    return {
+      major: mariaMajor,
+      supportsCTE: true,
+      supportsWindowFunctions: mariaMajor >= 11,
+      supportsJson: true,
+    };
+  }
+  return parseMariaDbVersion(await detectVersionString(k));
 }

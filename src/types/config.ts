@@ -5,7 +5,7 @@
 import type { TaskQueueOptions } from './queue.js';
 
 /** 支持的数据库方言 */
-export type DialectType = 'mysql' | 'postgresql' | 'sqlite' | 'mongodb';
+export type DialectType = 'mysql' | 'mariadb' | 'postgresql' | 'sqlite' | 'mongodb';
 
 /** 运行时名称 */
 export type RuntimeName = 'node' | 'bun';
@@ -49,6 +49,16 @@ export interface DmlOptions {
   maxInsertRows?: number;
   /** 返回被写行（PG/SQLite 用 RETURNING；MySQL 回读成本高，默认 false） */
   returning?: boolean;
+}
+
+/** 查询结果缓存选项（仅缓存幂等 SELECT） */
+export interface QueryCacheOptions {
+  /** 是否启用，默认 false */
+  enabled?: boolean;
+  /** TTL 毫秒，默认 60000 */
+  ttlMs?: number;
+  /** 最大缓存条目数（LRU），默认 1000 */
+  maxEntries?: number;
 }
 
 /** 结构检出选项（主要影响 MongoDB） */
@@ -95,6 +105,21 @@ export interface MysqlConfig extends BaseConfig {
   ssl?: SslOptions;
 }
 
+/** MariaDB 配置（协议与 MySQL 兼容，能力矩阵不同：10.2+ 支持 CTE） */
+export interface MariadbConfig extends BaseConfig {
+  type: 'mariadb';
+  host: string;
+  /** 默认 3306 */
+  port?: number;
+  user?: string;
+  username?: string;
+  password?: string;
+  database: string;
+  /** 方言模式：'10' | '11' | 'auto'（auto = 启动时探测 VERSION()） */
+  version?: '10' | '11' | 'auto';
+  ssl?: SslOptions;
+}
+
 export interface PostgresqlConfig extends BaseConfig {
   type: 'postgresql';
   host: string;
@@ -135,6 +160,7 @@ export interface MongodbConfig extends BaseConfig {
 
 export type ConnectionConfig =
   | MysqlConfig
+  | MariadbConfig
   | PostgresqlConfig
   | SqliteConfig
   | MongodbConfig;

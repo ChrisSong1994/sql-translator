@@ -25,15 +25,17 @@ export function buildSslConfig(config: MysqlConfig) {
 export class MysqlPoolHandle implements PoolHandle {
   readonly fingerprint: string;
   readonly config: MysqlConfig;
+  readonly isMariaDb: boolean;
   private knexInstance: Knex | null = null;
   private caps: MysqlCapabilities | null = null;
   private destroyedFlag = false;
   /** 表主键列缓存（INSERT returning 回读用） */
   private readonly pkCache = new Map<string, string>();
 
-  constructor(config: MysqlConfig) {
+  constructor(config: MysqlConfig, options: { isMariaDb?: boolean } = {}) {
     this.config = { ...config };
     this.fingerprint = configKey(config);
+    this.isMariaDb = options.isMariaDb ?? (config as any).type === 'mariadb';
     void resolveRuntime; // runtime 兼容占位（mysql 驱动不依赖 runtime 差异）
   }
 
@@ -67,9 +69,12 @@ export class MysqlPoolHandle implements PoolHandle {
           reapIntervalMillis: 1000,
           createRetryIntervalMillis: 100,
           propagateCreateError: false,
-          // 每条连接建立后设置单条 SQL 最大执行时间（30s），防止慢查询长期占用连接
+          // 每条连接建立后设置慢查询兜底：MySQL 用 max_execution_time(ms)，MariaDB 用 max_statement_time(s)
           afterCreate: (conn: any, done: (err: Error | null, conn: any) => void) => {
-            conn.query('SET SESSION max_execution_time = 30000', (err: Error | null) => {
+            const setVar = this.isMariaDb
+              ? 'SET SESSION max_statement_time = 30'
+              : 'SET SESSION max_execution_time = 30000';
+            conn.query(setVar, (err: Error | null) => {
               done(err, conn);
             });
           },
@@ -79,9 +84,13 @@ export class MysqlPoolHandle implements PoolHandle {
     return this.knexInstance;
   }
 
-  /** 版本能力（config.version 强制时跳过探测） */
+  /** 版本能力（config.version 强制时跳过探测；MariaDB 走独立解析） */
   async getCapabilities(): Promise<MysqlCapabilities> {
-    this.caps ??= await resolveMysqlCapabilities(await this.getKnex(), this.config.version);
+    this.caps ??= await resolveMysqlCapabilities(
+      await this.getKnex(),
+      this.config.version,
+      this.isMariaDb,
+    );
     return this.caps;
   }
 

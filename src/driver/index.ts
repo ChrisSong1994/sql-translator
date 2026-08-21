@@ -3,12 +3,13 @@
  */
 import { registerDriver } from './registry.js';
 import { sqliteDriver } from './sqlite/index.js';
-import { mysqlDriver } from './mysql/index.js';
+import { mysqlDriver, mariadbDriver } from './mysql/index.js';
 import { postgresqlDriver } from './postgresql/index.js';
 import { mongodbDriver } from './mongodb/index.js';
 
 registerDriver(sqliteDriver);
 registerDriver(mysqlDriver);
+registerDriver(mariadbDriver);
 registerDriver(postgresqlDriver);
 registerDriver(mongodbDriver);
 

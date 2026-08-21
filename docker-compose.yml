@@ -38,6 +38,22 @@ services:
       retries: 30
       start_period: 10s
 
+  mariadb:
+    image: ${MARIADB_IMAGE:-mariadb:11}
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: testdb
+      MARIADB_USER: test
+      MARIADB_PASSWORD: test
+    ports:
+      - "33063:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -proot || mysqladmin ping -h localhost -proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
   postgres:
     image: ${PG_IMAGE:-postgres:16-alpine}
     environment:
@@ -59,6 +75,19 @@ services:
     ports:
       - "27017:27017"
     # 种子数据由 scripts/init-fixtures.mjs 注入（Mongo 无挂载式 init）
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # 单节点副本集（支持多文档事务），端口 27018
+  mongo-rs:
+    image: ${MONGO_IMAGE:-mongo:7}
+    hostname: mongo-rs
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27018:27017"
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
       interval: 5s

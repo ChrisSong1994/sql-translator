@@ -28,6 +28,7 @@ export {
 } from './core/sql/table-mapper.js';
 export * from './optional/static-source.js';
 export * from './core/config.js';
+export * from './core/cache.js';
 
 import { SqlEngine } from './facade/engine.js';
 import type { ConnectionConfig, SchemaOptions } from './types/config.js';

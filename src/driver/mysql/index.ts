@@ -36,13 +36,20 @@ import { MysqlPoolHandle, buildSslConfig } from './pool.js';
 type Knex = Awaited<ReturnType<MysqlPoolHandle['getKnex']>>;
 
 export class MysqlDriver implements SqlDriver {
-  readonly dialect = 'mysql';
+  readonly dialect: 'mysql' | 'mariadb';
 
-  async createPool(config: MysqlConfig): Promise<PoolHandle> {
-    if (config.type !== 'mysql') {
-      throw new SqlEngineError('UNSUPPORTED_DIALECT', `mysql 驱动收到 ${config.type} 配置`);
+  constructor(dialect: 'mysql' | 'mariadb' = 'mysql') {
+    this.dialect = dialect;
+  }
+
+  async createPool(config: import('../../types/config.js').ConnectionConfig): Promise<PoolHandle> {
+    if (config.type !== this.dialect) {
+      throw new SqlEngineError(
+        'UNSUPPORTED_DIALECT',
+        `${this.dialect} 驱动收到 ${config.type} 配置`,
+      );
     }
-    return new MysqlPoolHandle(config);
+    return new MysqlPoolHandle(config as MysqlConfig, { isMariaDb: this.dialect === 'mariadb' });
   }
 
   // ==================== 连接测试 ====================
@@ -439,4 +446,5 @@ function extractInsertTable(sql: string): string | null {
   return String(m[1]!).replace(/[`"[\]]/g, '');
 }
 
-export const mysqlDriver = new MysqlDriver();
+export const mysqlDriver = new MysqlDriver('mysql');
+export const mariadbDriver = new MysqlDriver('mariadb');

@@ -30,6 +30,11 @@ const mysqlTargets = [
     port: Number(process.env.SQLENGINE_TEST_MYSQL8_PORT ?? 33062),
     host: process.env.SQLENGINE_TEST_MYSQL8_HOST ?? '127.0.0.1',
   },
+  {
+    name: 'mariadb',
+    port: Number(process.env.SQLENGINE_TEST_MARIADB_PORT ?? 33063),
+    host: process.env.SQLENGINE_TEST_MARIADB_HOST ?? '127.0.0.1',
+  },
 ];
 
 for (const target of mysqlTargets) {

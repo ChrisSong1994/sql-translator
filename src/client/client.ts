@@ -4,6 +4,7 @@
  */
 import { SqlEngineError } from '../errors.js';
 import { configKey } from '../core/config.js';
+import { TtlCache, queryCacheKey } from '../core/cache.js';
 import { getDriver } from '../driver/registry.js';
 import type { SqlDriver, PoolHandle } from '../driver/interface.js';
 import type { ConnectionConfig, SchemaOptions } from '../types/config.js';
@@ -35,6 +36,7 @@ export class DbClient {
   private driverCache: SqlDriver | null = null;
   private handlePromise: Promise<PoolHandle> | null = null;
   private destroyed = false;
+  private queryCache: TtlCache<string, ExecResult> | null = null;
 
   constructor(registry: PoolRegistry, config: ConnectionConfig) {
     this.registry = registry;
@@ -92,11 +94,38 @@ export class DbClient {
   // ==================== SQL 执行 ====================
 
   /** 完整执行入口（SELECT → QueryResult，DML → WriteResult）
-   * dml 选项按本 client 配置注入（池共享时 handle 配置不可靠） */
+   * dml 选项按本 client 配置注入（池共享时 handle 配置不可靠）
+   * 查询结果缓存：仅幂等 SELECT；写操作（DML/DDL）后整库失效 */
   async run(request: RunSqlRequest): Promise<ExecResult> {
     const handle = await this.getHandle();
     const req: RunSqlRequest = request.dml ? request : { ...request, dml: this.config.dml };
-    return this.driver.runSql(handle, req);
+    const type = detectStatementType(request.sql);
+    const cacheOpts = (this.config as any).cache as
+      | import('../types/config.js').QueryCacheOptions
+      | undefined;
+    const cache = cacheOpts?.enabled ? this.getQueryCache() : null;
+
+    if (cache && type === 'SELECT') {
+      const key = queryCacheKey(this.fingerprint, request.sql, request);
+      const hit = cache.get(key);
+      if (hit !== undefined) return hit;
+      const result = await this.driver.runSql(handle, req);
+      cache.set(key, structuredClone(result));
+      return result;
+    }
+
+    const result = await this.driver.runSql(handle, req);
+    // 写操作后失效（粗粒度：本 client 缓存全清；精确按表失效留后续）
+    if (cache && type !== 'SELECT') cache.clear();
+    return result;
+  }
+
+  private getQueryCache(): TtlCache<string, ExecResult> {
+    const opts = (this.config as any).cache as
+      | import('../types/config.js').QueryCacheOptions
+      | undefined;
+    this.queryCache ??= new TtlCache(opts?.ttlMs ?? 60000, opts?.maxEntries ?? 1000);
+    return this.queryCache;
   }
 
   /** SELECT 查询 */

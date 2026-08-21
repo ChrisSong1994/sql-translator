@@ -7,6 +7,7 @@ import type { ConnectionConfig, SslOptions } from '../types/config.js';
 /** 默认端口 */
 export const DEFAULT_PORTS: Record<string, number> = {
   mysql: 3306,
+  mariadb: 3306,
   postgresql: 5432,
   sqlite: 0,
   mongodb: 27017,
@@ -53,6 +54,7 @@ export function fingerprintConfig(config: ConnectionConfig): string {
     String(c.user ?? c.username ?? ''),
     String(c.password ?? ''),
     String(c.schema ?? (config.type === 'postgresql' ? 'public' : '')),
+    config.type === 'mariadb' ? 'mariadb' : '',
     ssl?.enabled ? `ssl:${ssl.mode ?? 'default'}` : 'nossl',
   );
 

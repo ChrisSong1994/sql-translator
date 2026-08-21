@@ -2,7 +2,7 @@
 
 以 SQL 为统一查询语言的数据库兼容层。支持 **MySQL 5.7 / 8.x / PostgreSQL / SQLite / MongoDB**（MongoDB 为 SQL→Query 翻译），双运行时 **Node ≥ 22.5 / Bun ≥ 1.1**，内置连接池、任务队列（多线程）、结构 JSON 检出。
 
-> 状态：**M1-M4 全部完成**（双运行时 Node ≥ 22.5 / Bun ≥ 1.1 全部 172 用例通过）：SQLite/MySQL 5.7/8/PG/Mongo 驱动 + 连接池 + 任务队列（多线程）+ 事务 + 结构 JSON 检出 + 静态数据源 + CI。
+> 状态：**全部完成**（双运行时 Node ≥ 22.5 / Bun ≥ 1.1 全部 191 用例通过）：SQLite / MySQL 5.7/8 / **MariaDB** / PostgreSQL / MongoDB（含**副本集事务**）驱动 + 连接池 + 任务队列（多线程）+ 事务 + **查询结果缓存** + 结构 JSON 检出 + 静态数据源 + CI。
 
 ## 快速开始
 
@@ -138,7 +138,22 @@ await db.withTransaction(async (tx) => {
   // fn 抛错自动回滚；也可手动 tx.commit() / tx.rollback()
 });
 ```
-SQLite/PG/MySQL 真事务；MongoDB 走 session（需副本集，单实例不支持）。
+SQLite/PG/MySQL/MariaDB 真事务；MongoDB 走 session（**需副本集**——docker compose 提供单节点副本集 `mongo-rs`(27018)，`node scripts/init-mongo-rs.mjs` 初始化）。
+
+## 查询结果缓存
+
+```ts
+const db = createClient({ type: 'sqlite', database: ':memory:', cache: { enabled: true, ttlMs: 60000, maxEntries: 1000 } });
+// 幂等 SELECT 结果缓存（TTL + LRU）；DML/DDL 后自动失效
+```
+仅缓存 SELECT；写操作后本 client 缓存整库失效。
+
+## MariaDB
+
+```ts
+const db = createClient({ type: 'mariadb', host, port: 3306, user, password, database, version: 'auto' });
+// MySQL 协议兼容；能力矩阵独立（10.2+ CTE → 分页走 CTE 包装；慢查询兜底用 max_statement_time）
+```
 
 ## 静态数据源（JSON/CSV/Excel → SQLite）
 
