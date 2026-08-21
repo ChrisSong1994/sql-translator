@@ -19,6 +19,33 @@ import { fileURLToPath } from 'node:url';
 const INIT_SQL = fileURLToPath(new URL('../test/fixtures/mysql/init.sql', import.meta.url));
 const sql = await readFile(INIT_SQL, 'utf8');
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** 带重试的连接（mysql 容器刚 healthy 时可能仍不可用/连接被重置） */
+async function connectWithRetry(target, attempts = 8, delayMs = 3000) {
+  let lastErr;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      return await mysql.createConnection({
+        host: target.host,
+        port: target.port,
+        user: 'root',
+        password: 'root',
+        charset: 'utf8mb4',
+        multipleStatements: true,
+        connectTimeout: 5000,
+      });
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts) {
+        console.warn(`[init-fixtures] ${target.name} 连接失败（${i}/${attempts}）: ${err.message}，重试...`);
+        await sleep(delayMs);
+      }
+    }
+  }
+  throw lastErr;
+}
+
 const mysqlTargets = [
   {
     name: 'mysql5',
@@ -40,15 +67,8 @@ const mysqlTargets = [
 for (const target of mysqlTargets) {
   let conn;
   try {
-    conn = await mysql.createConnection({
-      host: target.host,
-      port: target.port,
-      user: 'root',
-      password: 'root',
-      charset: 'utf8mb4',
-      multipleStatements: true,
-      connectTimeout: 5000,
-    });
+    conn = await connectWithRetry(target);
+    // 执行分阶段重试（DROP / init.sql 分开，避免大语句中途断连全量重来）
     await conn.query('DROP DATABASE IF EXISTS testdb');
     await conn.query(sql);
     console.log(`[init-fixtures] ${target.name} (${target.host}:${target.port}) 初始化完成`);
