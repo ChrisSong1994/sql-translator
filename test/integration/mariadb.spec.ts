@@ -8,17 +8,17 @@ import { defaultRegistry } from '../../src/client/registry.js';
 import type { MariadbConfig } from '../../src/types/config.js';
 import type { DbClient } from '../../src/client/index.js';
 
-const host = process.env.SQLENGINE_TEST_MARIADB_HOST;
-const port = process.env.SQLENGINE_TEST_MARIADB_PORT;
+const host = process.env.SQLTRANSLATOR_TEST_MARIADB_HOST;
+const port = process.env.SQLTRANSLATOR_TEST_MARIADB_PORT;
 const cfg: MariadbConfig | null =
   host && port
     ? {
         type: 'mariadb',
         host,
         port: Number(port),
-        user: process.env.SQLENGINE_TEST_MARIADB_USER ?? 'root',
-        password: process.env.SQLENGINE_TEST_MARIADB_PASSWORD ?? 'root',
-        database: process.env.SQLENGINE_TEST_MARIADB_DATABASE ?? 'testdb',
+        user: process.env.SQLTRANSLATOR_TEST_MARIADB_USER ?? 'root',
+        password: process.env.SQLTRANSLATOR_TEST_MARIADB_PASSWORD ?? 'root',
+        database: process.env.SQLTRANSLATOR_TEST_MARIADB_DATABASE ?? 'testdb',
         version: 'auto',
       }
     : null;

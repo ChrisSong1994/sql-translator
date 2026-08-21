@@ -2,7 +2,7 @@
  * MongoDB 集成测试（docker mongo:7，端口 27017）
  * 覆盖：SQL→Query（find/aggregate）、SQL→DML（insert/update/delete）、
  *      DML 护栏、结构检出（嵌套/数组/ObjectId）、长任务
- * 未设置 SQLENGINE_TEST_MONGO_URI 时自动跳过
+ * 未设置 SQLTRANSLATOR_TEST_MONGO_URI 时自动跳过
  */
 import { describe, expect, test, beforeAll, afterAll } from 'vitest';
 import { createClient } from '../../src/index.js';
@@ -10,7 +10,7 @@ import { defaultRegistry } from '../../src/client/registry.js';
 import type { MongodbConfig } from '../../src/types/config.js';
 import type { DbClient } from '../../src/client/index.js';
 
-const uri = process.env.SQLENGINE_TEST_MONGO_URI ?? 'mongodb://127.0.0.1:27017';
+const uri = process.env.SQLTRANSLATOR_TEST_MONGO_URI ?? 'mongodb://127.0.0.1:27017';
 const cfg: MongodbConfig = { type: 'mongodb', uri, database: 'testdb' };
 
 // 尝试连接，失败则跳过整个 describe

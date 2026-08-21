@@ -6,7 +6,7 @@
  */
 import { MongoClient } from 'mongodb';
 
-const uri = process.env.SQLENGINE_TEST_MONGO_RS_URI ?? 'mongodb://127.0.0.1:27018';
+const uri = process.env.SQLTRANSLATOR_TEST_MONGO_RS_URI ?? 'mongodb://127.0.0.1:27018';
 const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, directConnection: true });
 try {
   await client.connect();

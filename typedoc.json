@@ -3,7 +3,7 @@
     "src/index.ts"
   ],
   "out": "docs/api",
-  "name": "@fett/sql-engine",
+  "name": "@fett/sql-translator",
   "includeVersion": true,
   "excludeExternals": true,
   "excludePrivate": true,

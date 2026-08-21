@@ -1,6 +1,6 @@
 /**
  * PostgreSQL 集成测试（docker compose postgres:16，端口 54321）
- * 未设置 SQLENGINE_TEST_PG_HOST/PORT 时自动跳过
+ * 未设置 SQLTRANSLATOR_TEST_PG_HOST/PORT 时自动跳过
  */
 import { describe, expect, test, beforeAll, afterAll } from 'vitest';
 import { createClient } from '../../src/index.js';
@@ -8,17 +8,17 @@ import { defaultRegistry } from '../../src/client/registry.js';
 import type { PostgresqlConfig } from '../../src/types/config.js';
 import type { DbClient } from '../../src/client/index.js';
 
-const host = process.env.SQLENGINE_TEST_PG_HOST;
-const port = process.env.SQLENGINE_TEST_PG_PORT;
+const host = process.env.SQLTRANSLATOR_TEST_PG_HOST;
+const port = process.env.SQLTRANSLATOR_TEST_PG_PORT;
 const cfg: PostgresqlConfig | null =
   host && port
     ? {
         type: 'postgresql',
         host,
         port: Number(port),
-        user: process.env.SQLENGINE_TEST_PG_USER ?? 'test',
-        password: process.env.SQLENGINE_TEST_PG_PASSWORD ?? 'test',
-        database: process.env.SQLENGINE_TEST_PG_DATABASE ?? 'testdb',
+        user: process.env.SQLTRANSLATOR_TEST_PG_USER ?? 'test',
+        password: process.env.SQLTRANSLATOR_TEST_PG_PASSWORD ?? 'test',
+        database: process.env.SQLTRANSLATOR_TEST_PG_DATABASE ?? 'testdb',
       }
     : null;
 

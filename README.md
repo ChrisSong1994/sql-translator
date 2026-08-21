@@ -169,7 +169,7 @@ const db = createClient({ type: 'mariadb', host, port: 3306, user, password, dat
 ## 静态数据源（JSON/CSV/Excel → SQLite）
 
 ```ts
-import { createStaticSqlitePool, importDataToSqlite, runStaticSql } from '@fett/sql-engine';
+import { createStaticSqlitePool, importDataToSqlite, runStaticSql } from '@fett/sql-translator';
 
 const pool = await createStaticSqlitePool({ type: 'sqlite', database: ':memory:' });
 await importDataToSqlite(pool, 'json_data_1_1', [{ id: 1, name: 'alice' }]);

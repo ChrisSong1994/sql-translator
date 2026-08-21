@@ -6,15 +6,15 @@ import { describe, expect, test, beforeAll, afterAll } from 'vitest';
 import { createClient } from '../../src/index.js';
 import { defaultRegistry } from '../../src/client/registry.js';
 
-const rawUri = process.env.SQLENGINE_TEST_MONGO_RS_URI;
+const rawUri = process.env.SQLTRANSLATOR_TEST_MONGO_RS_URI;
 // directConnection 绕过 topology discovery（宿主无法解析容器名 mongo-rs:27017）
 const uri = rawUri
   ? rawUri + (rawUri.includes('directConnection') ? '' : (rawUri.includes('?') ? '&' : '?') + 'directConnection=true')
   : 'mongodb://127.0.0.1:27018/?directConnection=true';
 const cfg = { type: 'mongodb' as const, uri, database: 'testdb_rs' };
 
-// 未设置 SQLENGINE_TEST_MONGO_RS_URI 时跳过（CI/本地未起 mongo-rs）
-const describeRs = process.env.SQLENGINE_TEST_MONGO_RS_URI ? describe : describe.skip;
+// 未设置 SQLTRANSLATOR_TEST_MONGO_RS_URI 时跳过（CI/本地未起 mongo-rs）
+const describeRs = process.env.SQLTRANSLATOR_TEST_MONGO_RS_URI ? describe : describe.skip;
 
 describeRs('MongoDB 副本集事务（mongo-rs 27018）', () => {
   let available = false;

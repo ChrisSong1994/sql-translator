@@ -3,8 +3,8 @@
  * 初始化测试数据库种子数据（MySQL 5.7/8.0、MongoDB）
  * 用法：node scripts/init-fixtures.mjs
  * 环境变量：
- *   SQLENGINE_TEST_MYSQL5_HOST/PORT、SQLENGINE_TEST_MYSQL8_HOST/PORT（默认 33061/33062）
- *   SQLENGINE_TEST_MONGO_URI（默认 mongodb://127.0.0.1:27017）
+ *   SQLTRANSLATOR_TEST_MYSQL5_HOST/PORT、SQLTRANSLATOR_TEST_MYSQL8_HOST/PORT（默认 33061/33062）
+ *   SQLTRANSLATOR_TEST_MONGO_URI（默认 mongodb://127.0.0.1:27017）
  *
  * 说明：
  * - MySQL 不用 docker-entrypoint 挂载（容器默认 latin1 导致中文注释双重编码），统一脚本 utf8mb4 初始化
@@ -49,18 +49,18 @@ async function connectWithRetry(target, attempts = 8, delayMs = 3000) {
 const mysqlTargets = [
   {
     name: 'mysql5',
-    port: Number(process.env.SQLENGINE_TEST_MYSQL5_PORT ?? 33061),
-    host: process.env.SQLENGINE_TEST_MYSQL5_HOST ?? '127.0.0.1',
+    port: Number(process.env.SQLTRANSLATOR_TEST_MYSQL5_PORT ?? 33061),
+    host: process.env.SQLTRANSLATOR_TEST_MYSQL5_HOST ?? '127.0.0.1',
   },
   {
     name: 'mysql8',
-    port: Number(process.env.SQLENGINE_TEST_MYSQL8_PORT ?? 33062),
-    host: process.env.SQLENGINE_TEST_MYSQL8_HOST ?? '127.0.0.1',
+    port: Number(process.env.SQLTRANSLATOR_TEST_MYSQL8_PORT ?? 33062),
+    host: process.env.SQLTRANSLATOR_TEST_MYSQL8_HOST ?? '127.0.0.1',
   },
   {
     name: 'mariadb',
-    port: Number(process.env.SQLENGINE_TEST_MARIADB_PORT ?? 33063),
-    host: process.env.SQLENGINE_TEST_MARIADB_HOST ?? '127.0.0.1',
+    port: Number(process.env.SQLTRANSLATOR_TEST_MARIADB_PORT ?? 33063),
+    host: process.env.SQLTRANSLATOR_TEST_MARIADB_HOST ?? '127.0.0.1',
   },
 ];
 
@@ -81,7 +81,7 @@ for (const target of mysqlTargets) {
 }
 
 // ---- MongoDB 种子数据 ----
-const mongoUri = process.env.SQLENGINE_TEST_MONGO_URI ?? 'mongodb://127.0.0.1:27017';
+const mongoUri = process.env.SQLTRANSLATOR_TEST_MONGO_URI ?? 'mongodb://127.0.0.1:27017';
 let mongo;
 try {
   mongo = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 5000 });
