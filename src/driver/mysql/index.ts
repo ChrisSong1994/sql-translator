@@ -27,7 +27,14 @@ import {
 } from '../../core/field-mapper/mysql.js';
 import type { SqlDriver, PoolHandle } from '../interface.js';
 import type { MysqlConfig, SchemaOptions } from '../../types/config.js';
-import type { ExecResult, QueryResult, RunSqlRequest, TestResult, WriteResult } from '../../types/result.js';
+import type {
+  ExecResult,
+  ExplainResult,
+  QueryResult,
+  RunSqlRequest,
+  TestResult,
+  WriteResult,
+} from '../../types/result.js';
 import type { ColumnSchema, ForeignKeySchema, IndexSchema, TableSchema } from '../../types/schema.js';
 import type { IntrospectTask } from '../../types/task.js';
 import type { TransactionHandle } from '../../types/transaction.js';
@@ -50,6 +57,16 @@ export class MysqlDriver implements SqlDriver {
       );
     }
     return new MysqlPoolHandle(config as MysqlConfig, { isMariaDb: this.dialect === 'mariadb' });
+  }
+
+  /** EXPLAIN 执行计划 */
+  async explain(pool: PoolHandle, request: RunSqlRequest): Promise<ExplainResult> {
+    const handle = pool as MysqlPoolHandle;
+    const k = await handle.getKnex();
+    const sql = normalizeSql(request.sql);
+    const raw = (await k.raw(`EXPLAIN ${sql}`, this.bind(request.params))) as unknown[];
+    const rows = (Array.isArray(raw) ? raw[0] : raw) as any[];
+    return { dialect: this.dialect, sql, params: request.params, plan: rows };
   }
 
   // ==================== 连接测试 ====================

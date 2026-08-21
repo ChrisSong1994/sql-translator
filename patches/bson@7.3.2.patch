@@ -1,5 +1,5 @@
 diff --git a/lib/bson.bundle.js b/lib/bson.bundle.js
-index a2b81106635cd009d5ed3c90d33bfb544ca542a9..ea0f5fa063f1e54f24e8ae3d231b03f507858f2c 100644
+index a2b81106635cd009d5ed3c90d33bfb544ca542a9..babef4bffd94cabdaa8b395b2abb88d6d429903b 100644
 --- a/lib/bson.bundle.js
 +++ b/lib/bson.bundle.js
 @@ -2617,9 +2617,14 @@ class ObjectId extends BSONValue {
@@ -8,14 +8,14 @@ index a2b81106635cd009d5ed3c90d33bfb544ca542a9..ea0f5fa063f1e54f24e8ae3d231b03f5
          this.resetState();
 -        const { startupSnapshot } = globalThis?.process?.getBuiltinModule?.('v8') ?? {};
 -        if (startupSnapshot?.isBuildingSnapshot?.()) {
-+        // [sql-translator patch] Bun 未实现 node:v8 startupSnapshot，加 try/catch 兼容
++        // [sql-engine patch] Bun 兼容：node:v8 startupSnapshot 未实现时忽略
 +        try {
 +          const { startupSnapshot } = globalThis?.process?.getBuiltinModule?.('v8') ?? {};
 +          if (startupSnapshot?.isBuildingSnapshot?.()) {
              startupSnapshot?.addDeserializeCallback?.(this.resetState);
 +          }
 +        } catch {
-+          // Bun 等运行时未实现 v8 startupSnapshot，忽略
++          // ignore
          }
      }
      static cacheHexString;
@@ -29,7 +29,7 @@ index 6743a3210ac3d2eec51ce4b9c763d551a35c2ec9..f01b19f5ab1c10154ce9d55e3b283cdf
          this.resetState();
 -        const { startupSnapshot } = globalThis?.process?.getBuiltinModule?.('v8') ?? {};
 -        if (startupSnapshot?.isBuildingSnapshot?.()) {
-+        // [sql-translator patch] Bun 兼容：node:v8 startupSnapshot 未实现时忽略
++        // [sql-engine patch] Bun 兼容：node:v8 startupSnapshot 未实现时忽略
 +        try {
 +          const { startupSnapshot } = globalThis?.process?.getBuiltinModule?.('v8') ?? {};
 +          if (startupSnapshot?.isBuildingSnapshot?.()) {
@@ -50,7 +50,7 @@ index 9555e4a71bedc22425f3f07b4ed724ef0c22bfd4..926adb087e8e9856b0a1b8d1dfd1b07a
          this.resetState();
 -        const { startupSnapshot } = globalThis?.process?.getBuiltinModule?.('v8') ?? {};
 -        if (startupSnapshot?.isBuildingSnapshot?.()) {
-+        // [sql-translator patch] Bun 兼容：node:v8 startupSnapshot 未实现时忽略
++        // [sql-engine patch] Bun 兼容：node:v8 startupSnapshot 未实现时忽略
 +        try {
 +          const { startupSnapshot } = globalThis?.process?.getBuiltinModule?.('v8') ?? {};
 +          if (startupSnapshot?.isBuildingSnapshot?.()) {
@@ -71,7 +71,7 @@ index a0f9695d9bbe62942114b01302990501debb26a1..827c1783daa7e6cc51464e50ccdd4752
          this.resetState();
 -        const { startupSnapshot } = globalThis?.process?.getBuiltinModule?.('v8') ?? {};
 -        if (startupSnapshot?.isBuildingSnapshot?.()) {
-+        // [sql-translator patch] Bun 兼容：node:v8 startupSnapshot 未实现时忽略
++        // [sql-engine patch] Bun 兼容：node:v8 startupSnapshot 未实现时忽略
 +        try {
 +          const { startupSnapshot } = globalThis?.process?.getBuiltinModule?.('v8') ?? {};
 +          if (startupSnapshot?.isBuildingSnapshot?.()) {
@@ -92,7 +92,7 @@ index 91c72452a937e6cd5c07c548c6729847f6d4712c..027b97f6b57462e484237d9a8b4c8a33
          this.resetState();
 -        const { startupSnapshot } = globalThis?.process?.getBuiltinModule?.('v8') ?? {};
 -        if (startupSnapshot?.isBuildingSnapshot?.()) {
-+        // [sql-translator patch] Bun 兼容：node:v8 startupSnapshot 未实现时忽略
++        // [sql-engine patch] Bun 兼容：node:v8 startupSnapshot 未实现时忽略
 +        try {
 +          const { startupSnapshot } = globalThis?.process?.getBuiltinModule?.('v8') ?? {};
 +          if (startupSnapshot?.isBuildingSnapshot?.()) {

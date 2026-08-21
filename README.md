@@ -188,5 +188,6 @@ GitHub Actions（.github/workflows/test.yml）：Node + Bun 双运行时，docke
 
 ## 文档
 
-- **使用文档**：[USAGE.md](USAGE.md)（连接配置 / SQL 执行 / 连接池 / 事务 / 缓存 / 结构检出 / 错误码 等）
+- **使用文档**：[USAGE.md](USAGE.md)（连接配置 / SQL 执行 / 连接池 / 事务 / 缓存 / EXPLAIN / 慢查询日志 / 错误码 等）
+- **API 类型文档**：[docs/api/index.html](docs/api/index.html)（`pnpm docs:api` 生成）
 - **架构设计**：[.docs/architecture.md](.docs/architecture.md)

@@ -8,7 +8,8 @@ import { getDriver } from '../driver/registry.js';
 import type { SqlDriver } from '../driver/interface.js';
 import { defaultRegistry, type PoolRegistry } from '../client/registry.js';
 import type { ConnectionConfig, SchemaOptions } from '../types/config.js';
-import { roundDuration, type ExecResult, type Field, type RunSqlRequest, type TestResult } from '../types/result.js';
+import { roundDuration, type ExecResult, type ExplainResult, type Field, type RunSqlRequest, type TestResult } from '../types/result.js';
+import { maybeLogSlowQuery } from '../core/slow-query.js';
 import type { TableSchema } from '../types/schema.js';
 import type { IntrospectTask } from '../types/task.js';
 import { wrapTask } from '../types/task.js';
@@ -32,9 +33,18 @@ export class SqlEngine {
     const handle = await this.registry.getPool(config);
     try {
       const result = await driver.runSql(handle, request);
+      const durationMs = performance.now() - start;
       if (result && typeof result === 'object') {
-        (result as { duration?: number }).duration = roundDuration(performance.now() - start);
+        (result as { duration?: number }).duration = roundDuration(durationMs);
       }
+      // 慢查询日志
+      maybeLogSlowQuery((config as any).logging, {
+        dialect: driver.dialect,
+        sql: request.sql,
+        params: request.params,
+        durationMs,
+        fingerprint: configKey(config),
+      });
       return result;
     } finally {
       this.registry.release(configKey(config));
@@ -101,6 +111,23 @@ export class SqlEngine {
         return task;
       }),
     );
+  }
+
+  /** EXPLAIN 执行计划 */
+  async explain(config: ConnectionConfig, sql: string, params?: unknown[]): Promise<ExplainResult> {
+    const driver = getDriver(config.type);
+    if (!driver.explain) {
+      throw new SqlEngineError('QUERY_FAILED', `方言 ${driver.dialect} 不支持 explain`);
+    }
+    const start = performance.now();
+    const handle = await this.registry.getPool(config);
+    try {
+      const result = await driver.explain(handle, { sql, params });
+      result.duration = roundDuration(performance.now() - start);
+      return result;
+    } finally {
+      this.registry.release(configKey(config));
+    }
   }
 
   /** 事务：fn 内所有查询在同一事务内执行 */

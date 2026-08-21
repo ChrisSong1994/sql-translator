@@ -5,6 +5,7 @@
 import { SqlEngineError } from '../errors.js';
 import { configKey } from '../core/config.js';
 import { TtlCache, queryCacheKey } from '../core/cache.js';
+import { maybeLogSlowQuery } from '../core/slow-query.js';
 import { getDriver } from '../driver/registry.js';
 import type { SqlDriver, PoolHandle } from '../driver/interface.js';
 import type { ConnectionConfig, SchemaOptions } from '../types/config.js';
@@ -102,9 +103,18 @@ export class DbClient {
   async run(request: RunSqlRequest): Promise<ExecResult> {
     const start = performance.now();
     const finish = (result: ExecResult): ExecResult => {
+      const durationMs = performance.now() - start;
       if (result && typeof result === 'object') {
-        (result as { duration?: number }).duration = roundDuration(performance.now() - start);
+        (result as { duration?: number }).duration = roundDuration(durationMs);
       }
+      // 慢查询日志（仅当配置 slowQueryMs 且超过阈值）
+      maybeLogSlowQuery((this.config as any).logging, {
+        dialect: this.driver.dialect,
+        sql: request.sql,
+        params: request.params,
+        durationMs,
+        fingerprint: this.fingerprint,
+      });
       return result;
     };
 
@@ -175,6 +185,18 @@ export class DbClient {
     }
     const result = await this.run({ sql, params });
     return result as WriteResult;
+  }
+
+  /** EXPLAIN 执行计划（SQLite QUERY PLAN / MySQL / PG / Mongo） */
+  async explain(sql: string, params?: unknown[]): Promise<import('../types/result.js').ExplainResult> {
+    if (!this.driver.explain) {
+      throw new SqlEngineError('QUERY_FAILED', `方言 ${this.driver.dialect} 不支持 explain`);
+    }
+    const handle = await this.getHandle();
+    const start = performance.now();
+    const result = await this.driver.explain(handle, { sql, params });
+    result.duration = roundDuration(performance.now() - start);
+    return result;
   }
 
   /** 透传原始驱动结果（不包装）——M2 提供方言原生透传 */

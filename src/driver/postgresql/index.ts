@@ -25,6 +25,7 @@ import type { SqlDriver, PoolHandle } from '../interface.js';
 import type { PostgresqlConfig, SchemaOptions } from '../../types/config.js';
 import type {
   ExecResult,
+  ExplainResult,
   Field,
   QueryResult,
   RunSqlRequest,
@@ -68,6 +69,21 @@ export class PostgresqlDriver implements SqlDriver {
       throw new SqlEngineError('UNSUPPORTED_DIALECT', `postgresql 驱动收到 ${config.type} 配置`);
     }
     return new PostgresqlPoolHandle(config);
+  }
+
+  /** EXPLAIN 执行计划（返回 QUERY PLAN 文本行） */
+  async explain(pool: PoolHandle, request: RunSqlRequest): Promise<ExplainResult> {
+    const handle = pool as PostgresqlPoolHandle;
+    const k = await handle.getKnex();
+    const sql = pgParamsToQuestion(normalizeSql(request.sql));
+    const res = (await k.raw(`EXPLAIN ${sql}`, this.bind(request.params))) as {
+      rows?: Array<Record<string, unknown>>;
+    };
+    const plan = (res.rows || []).map((r) => {
+      const first = Object.values(r)[0];
+      return String(first ?? '');
+    });
+    return { dialect: 'postgresql', sql, params: request.params, plan };
   }
 
   // ==================== 连接测试 ====================

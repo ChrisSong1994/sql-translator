@@ -517,6 +517,47 @@ const schema = await db.getTableSchema('users');
 
 ---
 
+## EXPLAIN 执行计划
+
+```ts
+const plan = await db.explain('SELECT * FROM users WHERE age > 20');
+// {
+//   dialect: 'sqlite',
+//   sql: 'SELECT * FROM users WHERE age > 20',
+//   plan: [ { id: 2, parent: 0, notused: 0, detail: 'SEARCH users USING INDEX idx_users_age (age>?)' } ],
+//   duration: 0.5,
+// }
+```
+- **SQLite**：`EXPLAIN QUERY PLAN`（含索引使用）
+- **MySQL / MariaDB**：`EXPLAIN`（type/key/rows 等计划行）
+- **PostgreSQL**：`EXPLAIN`（QUERY PLAN 文本）
+- **MongoDB**：noql 翻译后 `find/aggregate.explain('executionStats')`（含执行统计）
+- 函数式 API：`explain(config, sql, params)`
+
+## 慢查询日志
+
+```ts
+const db = createClient({
+  type: 'mysql', /* ... */,
+  logging: {
+    slowQueryMs: 1000,                    // 超过 1s 的查询记录日志（0 = 记录所有）
+    logFn: (entry) => myLogger(entry),    // 自定义（默认 console.warn）
+  },
+});
+// 触发时 entry:
+// { type: 'slow-query', dialect, sql, params, durationMs, fingerprint, at }
+```
+- 所有执行路径（client.run / query / execute / 函数式 runSql）统一检测
+- 未配置 `slowQueryMs` 时不记录（零开销）
+
+## API 类型文档
+
+```bash
+pnpm docs:api      # 生成到 docs/api/（typedoc）
+pnpm docs:dev      # 监听模式
+```
+生成 HTML 类型文档（classes / interfaces / functions / types / variables 分类），入口 `docs/api/index.html`。
+
 ## 错误处理
 
 所有错误统一为 `SqlEngineError`（`err.code` 分类，保留原始 message）：
