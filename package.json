@@ -1,6 +1,6 @@
 {
   "name": "@fett/sql-translator",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "SQL 兼容层：以 SQL 为统一查询语言的数据库兼容层（MySQL 5/8 / PostgreSQL / SQLite / MongoDB），支持 Node ≥ 22.5 与 Bun，内置连接池、任务队列（多线程）、结构检出",
   "license": "ISC",
   "author": "chrissong1994 <18557511748@163.com>",

@@ -21,6 +21,8 @@ export * from './core/worker/index.js';
 export * from './core/sql/normalize.js';
 export * from './core/sql/pagination.js';
 export * from './core/sql/statement.js';
+export * from './core/field-mapper/mysql.js';
+export * from './core/field-mapper/postgresql.js';
 export {
   replaceTableNamesInSql,
   validateTableNameReplacement,
