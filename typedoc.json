@@ -1,5 +1,7 @@
 {
-  "entryPoints": ["src/index.ts"],
+  "entryPoints": [
+    "src/index.ts"
+  ],
   "out": "docs/api",
   "name": "@fett/sql-engine",
   "includeVersion": true,
@@ -9,7 +11,7 @@
   "excludeInternal": true,
   "readme": "none",
   "categorizeByGroup": true,
-  "githubPages": false,
+  "githubPages": true,
   "navigationLinks": {
     "USAGE": "USAGE.md",
     "架构设计": ".docs/architecture.md",

@@ -558,6 +558,16 @@ pnpm docs:dev      # 监听模式
 ```
 生成 HTML 类型文档（classes / interfaces / functions / types / variables 分类），入口 `docs/api/index.html`。
 
+### 部署到 GitHub Pages
+
+`pnpm docs:api` 的产物（含 `.nojekyll`）由 `.github/workflows/pages.yml` 自动部署：
+
+- **触发**：push 到 `main`、推送 `v*` tag（发布）、手动 `workflow_dispatch`
+- **流程**：`pnpm install` → `pnpm build` → `pnpm docs:api` → `upload-pages-artifact` → `deploy-pages`
+- **前置配置**（一次）：仓库 Settings → **Pages** → Source 选择 **"GitHub Actions"**
+- **访问地址**：`https://<user>.github.io/<repo>/`
+- 部署失败排查：Actions → docs-deploy workflow 日志；确认 Settings → Pages 已选 GitHub Actions 源
+
 ## 错误处理
 
 所有错误统一为 `SqlEngineError`（`err.code` 分类，保留原始 message）：
