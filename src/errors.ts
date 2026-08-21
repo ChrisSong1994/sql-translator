@@ -13,7 +13,8 @@ export type SqlEngineErrorCode =
   | 'POOL_EXHAUSTED'
   | 'CLIENT_LIMIT_EXCEEDED'
   | 'TASK_QUEUE_CLOSED'
-  | 'WORKER_UNAVAILABLE';
+  | 'WORKER_UNAVAILABLE'
+  | 'READ_ONLY';
 
 export interface SqlEngineErrorOptions {
   dialect?: string;

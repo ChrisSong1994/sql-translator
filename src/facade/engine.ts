@@ -8,7 +8,7 @@ import { getDriver } from '../driver/registry.js';
 import type { SqlDriver } from '../driver/interface.js';
 import { defaultRegistry, type PoolRegistry } from '../client/registry.js';
 import type { ConnectionConfig, SchemaOptions } from '../types/config.js';
-import type { ExecResult, Field, RunSqlRequest, TestResult } from '../types/result.js';
+import { roundDuration, type ExecResult, type Field, type RunSqlRequest, type TestResult } from '../types/result.js';
 import type { TableSchema } from '../types/schema.js';
 import type { IntrospectTask } from '../types/task.js';
 import { wrapTask } from '../types/task.js';
@@ -24,12 +24,18 @@ export class SqlEngine {
     return getDriver(config.type).testConnection(config);
   }
 
-  /** 执行 SQL：SELECT → QueryResult，DML → WriteResult（池按 config 指纹共享） */
+  /** 执行 SQL：SELECT → QueryResult，DML → WriteResult（池按 config 指纹共享）
+   * 返回结果统一携带 duration（执行耗时 ms） */
   async runSql(config: ConnectionConfig, request: RunSqlRequest): Promise<ExecResult> {
+    const start = performance.now();
     const driver = getDriver(config.type);
     const handle = await this.registry.getPool(config);
     try {
-      return await driver.runSql(handle, request);
+      const result = await driver.runSql(handle, request);
+      if (result && typeof result === 'object') {
+        (result as { duration?: number }).duration = roundDuration(performance.now() - start);
+      }
+      return result;
     } finally {
       this.registry.release(configKey(config));
     }

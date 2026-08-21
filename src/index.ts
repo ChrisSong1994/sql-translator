@@ -9,6 +9,7 @@
 import './driver/index.js'; // 注册内置驱动（sqlite）
 
 export * from './types/index.js';
+export { roundDuration } from './types/result.js';
 export type { TransactionHandle } from './types/transaction.js';
 export * from './errors.js';
 export * from './runtime.js';

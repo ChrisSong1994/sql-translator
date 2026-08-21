@@ -8,13 +8,14 @@ import { TtlCache, queryCacheKey } from '../core/cache.js';
 import { getDriver } from '../driver/registry.js';
 import type { SqlDriver, PoolHandle } from '../driver/interface.js';
 import type { ConnectionConfig, SchemaOptions } from '../types/config.js';
-import type {
-  ExecResult,
-  Field,
-  QueryResult,
-  RunSqlRequest,
-  TestResult,
-  WriteResult,
+import {
+  roundDuration,
+  type ExecResult,
+  type Field,
+  type QueryResult,
+  type RunSqlRequest,
+  type TestResult,
+  type WriteResult,
 } from '../types/result.js';
 import type { TableSchema } from '../types/schema.js';
 import type { IntrospectTask, TaskProgress } from '../types/task.js';
@@ -95,11 +96,23 @@ export class DbClient {
 
   /** 完整执行入口（SELECT → QueryResult，DML → WriteResult）
    * dml 选项按本 client 配置注入（池共享时 handle 配置不可靠）
-   * 查询结果缓存：仅幂等 SELECT；写操作（DML/DDL）后整库失效 */
+   * 查询结果缓存：仅幂等 SELECT；写操作（DML/DDL）后整库失效
+   * selectOnly 只读模式：拒绝一切非 SELECT 语句
+   * 返回结果统一携带 duration（执行耗时 ms，含缓存命中） */
   async run(request: RunSqlRequest): Promise<ExecResult> {
+    const start = performance.now();
+    const finish = (result: ExecResult): ExecResult => {
+      if (result && typeof result === 'object') {
+        (result as { duration?: number }).duration = roundDuration(performance.now() - start);
+      }
+      return result;
+    };
+
+    const type = detectStatementType(request.sql);
+    this.assertWritable(type);
+
     const handle = await this.getHandle();
     const req: RunSqlRequest = request.dml ? request : { ...request, dml: this.config.dml };
-    const type = detectStatementType(request.sql);
     const cacheOpts = (this.config as any).cache as
       | import('../types/config.js').QueryCacheOptions
       | undefined;
@@ -108,16 +121,26 @@ export class DbClient {
     if (cache && type === 'SELECT') {
       const key = queryCacheKey(this.fingerprint, request.sql, request);
       const hit = cache.get(key);
-      if (hit !== undefined) return hit;
+      if (hit !== undefined) return finish(hit);
       const result = await this.driver.runSql(handle, req);
       cache.set(key, structuredClone(result));
-      return result;
+      return finish(result);
     }
 
     const result = await this.driver.runSql(handle, req);
     // 写操作后失效（粗粒度：本 client 缓存全清；精确按表失效留后续）
     if (cache && type !== 'SELECT') cache.clear();
-    return result;
+    return finish(result);
+  }
+
+  /** selectOnly 只读模式护栏：拒绝非 SELECT 语句 */
+  private assertWritable(type: import('../core/sql/statement.js').StatementType): void {
+    if (this.config.selectOnly && type !== 'SELECT') {
+      throw new SqlEngineError(
+        'READ_ONLY',
+        `只读模式（selectOnly: true）禁止 ${type} 语句，仅允许 SELECT`,
+      );
+    }
   }
 
   private getQueryCache(): TtlCache<string, ExecResult> {
@@ -230,6 +253,9 @@ export class DbClient {
 
   /** 事务：fn 内所有查询在同一事务/连接内执行；fn 抛错自动回滚 */
   async withTransaction<T>(fn: (tx: TransactionHandle) => Promise<T>): Promise<T> {
+    if (this.config.selectOnly) {
+      throw new SqlEngineError('READ_ONLY', '只读模式（selectOnly: true）禁止事务');
+    }
     if (!this.driver.withTransaction) {
       throw new SqlEngineError('QUERY_FAILED', `方言 ${this.driver.dialect} 不支持事务`);
     }

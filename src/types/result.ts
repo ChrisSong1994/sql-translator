@@ -59,6 +59,11 @@ export interface TestResult {
   version?: string;
 }
 
+/** 毫秒保留 2 位小数 */
+export function roundDuration(ms: number): number {
+  return Math.round(ms * 100) / 100;
+}
+
 /** 类型守卫：是否为写操作结果 */
 export function isWriteResult(result: ExecResult): result is WriteResult {
   return 'affectedRows' in result;

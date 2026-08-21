@@ -2,7 +2,7 @@
 
 以 SQL 为统一查询语言的数据库兼容层。支持 **MySQL 5.7 / 8.x / PostgreSQL / SQLite / MongoDB**（MongoDB 为 SQL→Query 翻译），双运行时 **Node ≥ 22.5 / Bun ≥ 1.1**，内置连接池、任务队列（多线程）、结构 JSON 检出。
 
-> 状态：**全部完成**（双运行时 Node ≥ 22.5 / Bun ≥ 1.1 全部 191 用例通过）：SQLite / MySQL 5.7/8 / **MariaDB** / PostgreSQL / MongoDB（含**副本集事务**）驱动 + 连接池 + 任务队列（多线程）+ 事务 + **查询结果缓存** + 结构 JSON 检出 + 静态数据源 + CI。
+> 状态：**全部完成**（双运行时 Node ≥ 22.5 / Bun ≥ 1.1 全部 202 用例通过）：SQLite / MySQL 5.7/8 / **MariaDB** / PostgreSQL / MongoDB（含**副本集事务**）驱动 + 连接池 + 任务队列（多线程）+ 事务 + **查询结果缓存** + **selectOnly 只读模式** + **耗时返回** + 结构 JSON 检出 + 静态数据源 + CI。
 
 ## 快速开始
 
@@ -19,7 +19,8 @@ await db.execute(
 await db.execute('INSERT INTO users (name, age) VALUES (?, ?)', ['alice', 30]);
 
 const result = await db.query('SELECT * FROM users WHERE age > ?', [18]);
-// { rows: [...], fields: [...], total: 1, offset: 0, limit: 100 }
+// { rows: [...], fields: [...], total: 1, offset: 0, limit: 100, duration: 3.42 }
+// duration：执行耗时（ms），client.run / query / execute / 函数式 runSql 均返回
 
 const schema = await db.getTableSchema('users');  // 结构 JSON
 const json = await db.exportSchemaAsJson();       // 全库结构 → JSON 字符串
@@ -147,6 +148,16 @@ const db = createClient({ type: 'sqlite', database: ':memory:', cache: { enabled
 // 幂等 SELECT 结果缓存（TTL + LRU）；DML/DDL 后自动失效
 ```
 仅缓存 SELECT；写操作后本 client 缓存整库失效。
+
+## selectOnly 只读模式
+
+```ts
+const db = createClient({ type: 'sqlite', database: ':memory:', selectOnly: true });
+await db.query('SELECT * FROM t');          // ✅
+await db.execute('UPDATE t SET v = 1');     // ❌ READ_ONLY
+await db.withTransaction(async (tx) => {}); // ❌ READ_ONLY
+```
+只读模式下仅允许 SELECT，DML/DDL/事务一律拒绝（错误码 `READ_ONLY`）。
 
 ## MariaDB
 
