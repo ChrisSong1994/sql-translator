@@ -53,16 +53,16 @@ describe('EXPLAIN 执行计划（SQLite）', () => {
 
 describe('EXPLAIN（docker 数据库）', () => {
   const pgCfg =
-    process.env.SQLENGINE_TEST_PG_HOST && process.env.SQLENGINE_TEST_PG_PORT ? true : false;
+    process.env.SQLTRANSLATOR_TEST_PG_HOST && process.env.SQLTRANSLATOR_TEST_PG_PORT ? true : false;
   const describePg = pgCfg ? describe : describe.skip;
   describePg('PostgreSQL', () => {
     test('EXPLAIN 返回 QUERY PLAN 文本', async () => {
       const db = createClient({
         type: 'postgresql',
-        host: process.env.SQLENGINE_TEST_PG_HOST!,
-        port: Number(process.env.SQLENGINE_TEST_PG_PORT),
-        user: process.env.SQLENGINE_TEST_PG_USER ?? 'test',
-        password: process.env.SQLENGINE_TEST_PG_PASSWORD ?? 'test',
+        host: process.env.SQLTRANSLATOR_TEST_PG_HOST!,
+        port: Number(process.env.SQLTRANSLATOR_TEST_PG_PORT),
+        user: process.env.SQLTRANSLATOR_TEST_PG_USER ?? 'test',
+        password: process.env.SQLTRANSLATOR_TEST_PG_PASSWORD ?? 'test',
         database: 'testdb',
       });
       const result = await db.explain('SELECT * FROM users WHERE age > 20');
@@ -73,14 +73,14 @@ describe('EXPLAIN（docker 数据库）', () => {
   });
 
   const mysqlCfg =
-    process.env.SQLENGINE_TEST_MYSQL8_HOST && process.env.SQLENGINE_TEST_MYSQL8_PORT ? true : false;
+    process.env.SQLTRANSLATOR_TEST_MYSQL8_HOST && process.env.SQLTRANSLATOR_TEST_MYSQL8_PORT ? true : false;
   const describeMy = mysqlCfg ? describe : describe.skip;
   describeMy('MySQL 8', () => {
     test('EXPLAIN 返回计划行', async () => {
       const db = createClient({
         type: 'mysql',
-        host: process.env.SQLENGINE_TEST_MYSQL8_HOST!,
-        port: Number(process.env.SQLENGINE_TEST_MYSQL8_PORT),
+        host: process.env.SQLTRANSLATOR_TEST_MYSQL8_HOST!,
+        port: Number(process.env.SQLTRANSLATOR_TEST_MYSQL8_PORT),
         user: 'root',
         password: 'root',
         database: 'testdb',
@@ -93,13 +93,13 @@ describe('EXPLAIN（docker 数据库）', () => {
     });
   });
 
-  const mongoCfg = process.env.SQLENGINE_TEST_MONGO_URI ? true : false;
+  const mongoCfg = process.env.SQLTRANSLATOR_TEST_MONGO_URI ? true : false;
   const describeMo = mongoCfg ? describe : describe.skip;
   describeMo('MongoDB', () => {
     test('explain 返回执行统计', async () => {
       const db = createClient({
         type: 'mongodb',
-        uri: process.env.SQLENGINE_TEST_MONGO_URI!,
+        uri: process.env.SQLTRANSLATOR_TEST_MONGO_URI!,
         database: 'testdb',
       });
       const result = await db.explain("SELECT * FROM users WHERE age > 20");

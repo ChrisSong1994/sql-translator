@@ -1,10 +1,10 @@
 /**
  * MySQL 集成测试（mysql5 / mysql8，docker compose 起库后运行）
- * 未设置 SQLENGINE_TEST_MYSQL* 环境变量时自动跳过（describe.skipIf）
+ * 未设置 SQLTRANSLATOR_TEST_MYSQL* 环境变量时自动跳过（describe.skipIf）
  *
  * 启动：docker compose up -d --wait
- * 运行：SQLENGINE_TEST_MYSQL5_HOST=127.0.0.1 SQLENGINE_TEST_MYSQL5_PORT=33061 \
- *       SQLENGINE_TEST_MYSQL8_HOST=127.0.0.1 SQLENGINE_TEST_MYSQL8_PORT=33062 pnpm vitest run test/integration/mysql.spec.ts
+ * 运行：SQLTRANSLATOR_TEST_MYSQL5_HOST=127.0.0.1 SQLTRANSLATOR_TEST_MYSQL5_PORT=33061 \
+ *       SQLTRANSLATOR_TEST_MYSQL8_HOST=127.0.0.1 SQLTRANSLATOR_TEST_MYSQL8_PORT=33062 pnpm vitest run test/integration/mysql.spec.ts
  */
 import { describe, expect, test, beforeAll, afterAll } from 'vitest';
 import { createClient } from '../../src/index.js';
@@ -13,16 +13,16 @@ import type { MysqlConfig } from '../../src/types/config.js';
 import type { DbClient } from '../../src/client/index.js';
 
 function envMysqlConfig(prefix: string, version: '5' | '8' | 'auto'): MysqlConfig | null {
-  const host = process.env[`SQLENGINE_TEST_${prefix}_HOST`];
-  const port = process.env[`SQLENGINE_TEST_${prefix}_PORT`];
+  const host = process.env[`SQLTRANSLATOR_TEST_${prefix}_HOST`];
+  const port = process.env[`SQLTRANSLATOR_TEST_${prefix}_PORT`];
   if (!host || !port) return null;
   return {
     type: 'mysql',
     host,
     port: Number(port),
-    user: process.env[`SQLENGINE_TEST_${prefix}_USER`] ?? 'root',
-    password: process.env[`SQLENGINE_TEST_${prefix}_PASSWORD`] ?? 'root',
-    database: process.env[`SQLENGINE_TEST_${prefix}_DATABASE`] ?? 'testdb',
+    user: process.env[`SQLTRANSLATOR_TEST_${prefix}_USER`] ?? 'root',
+    password: process.env[`SQLTRANSLATOR_TEST_${prefix}_PASSWORD`] ?? 'root',
+    database: process.env[`SQLTRANSLATOR_TEST_${prefix}_DATABASE`] ?? 'testdb',
     version,
   };
 }

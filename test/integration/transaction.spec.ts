@@ -68,23 +68,23 @@ describe('withTransaction（SQLite）', () => {
 
 // ---- docker 数据库事务（环境变量就绪才跑） ----
 const pgCfg =
-  process.env.SQLENGINE_TEST_PG_HOST && process.env.SQLENGINE_TEST_PG_PORT
+  process.env.SQLTRANSLATOR_TEST_PG_HOST && process.env.SQLTRANSLATOR_TEST_PG_PORT
     ? {
         type: 'postgresql' as const,
-        host: process.env.SQLENGINE_TEST_PG_HOST,
-        port: Number(process.env.SQLENGINE_TEST_PG_PORT),
-        user: process.env.SQLENGINE_TEST_PG_USER ?? 'test',
-        password: process.env.SQLENGINE_TEST_PG_PASSWORD ?? 'test',
+        host: process.env.SQLTRANSLATOR_TEST_PG_HOST,
+        port: Number(process.env.SQLTRANSLATOR_TEST_PG_PORT),
+        user: process.env.SQLTRANSLATOR_TEST_PG_USER ?? 'test',
+        password: process.env.SQLTRANSLATOR_TEST_PG_PASSWORD ?? 'test',
         database: 'testdb',
       }
     : null;
 
 const mysqlCfg =
-  process.env.SQLENGINE_TEST_MYSQL8_HOST && process.env.SQLENGINE_TEST_MYSQL8_PORT
+  process.env.SQLTRANSLATOR_TEST_MYSQL8_HOST && process.env.SQLTRANSLATOR_TEST_MYSQL8_PORT
     ? {
         type: 'mysql' as const,
-        host: process.env.SQLENGINE_TEST_MYSQL8_HOST,
-        port: Number(process.env.SQLENGINE_TEST_MYSQL8_PORT),
+        host: process.env.SQLTRANSLATOR_TEST_MYSQL8_HOST,
+        port: Number(process.env.SQLTRANSLATOR_TEST_MYSQL8_PORT),
         user: 'root',
         password: 'root',
         database: 'testdb',
@@ -131,7 +131,7 @@ describe('withTransaction（MongoDB）', () => {
   test('单实例报错（副本集环境可成功）', async () => {
     const db = createClient({
       type: 'mongodb',
-      uri: process.env.SQLENGINE_TEST_MONGO_URI ?? 'mongodb://127.0.0.1:27017',
+      uri: process.env.SQLTRANSLATOR_TEST_MONGO_URI ?? 'mongodb://127.0.0.1:27017',
       database: 'testdb',
     });
     try {

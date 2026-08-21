@@ -1,4 +1,4 @@
-# @fett/sql-engine 使用文档
+# @fett/sql-translator 使用文档
 
 以 SQL 为统一查询语言的数据库兼容层。支持 **SQLite / MySQL 5.7 / MySQL 8 / MariaDB / PostgreSQL / MongoDB**（SQL→Query/DML 翻译），双运行时 **Node ≥ 22.5 / Bun ≥ 1.1**。
 
@@ -30,8 +30,8 @@
 ## 安装
 
 ```bash
-pnpm add @fett/sql-engine
-# 或 npm install @fett/sql-engine
+pnpm add @fett/sql-translator
+# 或 npm install @fett/sql-translator
 ```
 
 驱动依赖为 peerDependencies（可选，按需安装使用的方言）：
@@ -53,7 +53,7 @@ pnpm add knex
 ## 快速开始
 
 ```ts
-import { createClient } from '@fett/sql-engine';
+import { createClient } from '@fett/sql-translator';
 
 // 唯一入参：连接配置
 const db = createClient({ type: 'sqlite', database: ':memory:' });
@@ -277,7 +277,7 @@ export const db = createClient({ type: 'postgresql', /* ... */ });
 ### 多数据源平台（WizBuild 类场景）
 
 ```ts
-import { createClientManager } from '@fett/sql-engine';
+import { createClientManager } from '@fett/sql-translator';
 
 const manager = createClientManager({
   defaultPool: { max: 20, min: 0, idleTimeoutMs: 30000 },  // 每数据源池参数
@@ -326,7 +326,7 @@ pool: {
 与 WizBuild 现有 `runSql(configuration, {...})` 调用方式同构，内部走同一全局池注册表：
 
 ```ts
-import { runSql, testConnection, getTableList, getTableSchema, exportSchemaAsJson } from '@fett/sql-engine';
+import { runSql, testConnection, getTableList, getTableSchema, exportSchemaAsJson } from '@fett/sql-translator';
 
 const result = await runSql(dsConfig, { sql, offset: 0, limit: 10 });
 const schema = await exportSchemaAsJson(dsConfig);
@@ -463,7 +463,7 @@ await db.tasks.close();
 从 JSON 数组建 SQLite 表，并支持用户 SQL 用**逻辑表名**（自动映射为物理表名）：
 
 ```ts
-import { createStaticSqlitePool, importDataToSqlite, runStaticSql } from '@fett/sql-engine';
+import { createStaticSqlitePool, importDataToSqlite, runStaticSql } from '@fett/sql-translator';
 
 const pool = await createStaticSqlitePool({ type: 'sqlite', database: ':memory:' });
 
@@ -587,7 +587,7 @@ pnpm docs:dev      # 监听模式
 | `WORKER_UNAVAILABLE` | worker 不可用/闭包任务 |
 
 ```ts
-import { SqlEngineError, isSqlEngineError } from '@fett/sql-engine';
+import { SqlEngineError, isSqlEngineError } from '@fett/sql-translator';
 try {
   await db.execute('DELETE FROM users');   // 无 WHERE
 } catch (err) {
@@ -644,7 +644,7 @@ pnpm test
 
 ## 类型参考
 
-核心导出（`import * as sqlEngine from '@fett/sql-engine'`）：
+核心导出（`import * as sqlEngine from '@fett/sql-translator'`）：
 
 ```
 createClient, createClientManager, DbClient, ClientManager, SqlEngine,
