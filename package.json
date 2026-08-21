@@ -1,5 +1,5 @@
 {
-  "name": "@fett/sql-engine",
+  "name": "@fett/sql-translator",
   "version": "0.1.0",
   "description": "SQL 兼容层：以 SQL 为统一查询语言的数据库兼容层（MySQL 5/8 / PostgreSQL / SQLite / MongoDB），支持 Node ≥ 22.5 与 Bun，内置连接池、任务队列（多线程）、结构检出",
   "license": "ISC",
@@ -15,7 +15,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "patches",
+    "README.md"
   ],
   "engines": {
     "node": ">=22.5.0",
@@ -32,7 +34,9 @@
     "test:bun": "bun test test/unit test/integration",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
-    "db:init": "node scripts/init-fixtures.mjs"
+    "db:init": "node scripts/init-fixtures.mjs",
+    "prepublishOnly": "pnpm build && pnpm test:unit",
+    "release": "pnpm test && pnpm build && pnpm publish --access public"
   },
   "peerDependencies": {
     "@synatic/noql": ">=5",
@@ -43,12 +47,24 @@
     "pg": ">=8"
   },
   "peerDependenciesMeta": {
-    "@synatic/noql": { "optional": true },
-    "knex": { "optional": true },
-    "mongodb": { "optional": true },
-    "mysql2": { "optional": true },
-    "node-sql-parser": { "optional": true },
-    "pg": { "optional": true }
+    "@synatic/noql": {
+      "optional": true
+    },
+    "knex": {
+      "optional": true
+    },
+    "mongodb": {
+      "optional": true
+    },
+    "mysql2": {
+      "optional": true
+    },
+    "node-sql-parser": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
@@ -62,11 +78,6 @@
       "onFail": "download"
     }
   },
-  "pnpm": {
-    "patchedDependencies": {
-      "bson@7.3.2": "patches/bson@7.3.2.patch"
-    }
-  },
   "keywords": [
     "sql",
     "database",
@@ -75,5 +86,9 @@
     "sqlite",
     "mongodb",
     "compatibility-layer"
-  ]
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
 }

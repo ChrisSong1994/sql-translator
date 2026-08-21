@@ -24,6 +24,8 @@ export function buildMongoOptions(config: MongodbConfig): Record<string, unknown
     connectTimeoutMS: 10000,
     socketTimeoutMS: 30000,
     serverSelectionTimeoutMS: 10000,
+    // 单实例部署不支持 retryable writes（事务/会话需要），默认关闭
+    retryWrites: config.retryWrites ?? false,
   };
   if (config.ssl?.enabled) {
     options.tls = true;

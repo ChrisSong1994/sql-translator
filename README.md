@@ -1,13 +1,13 @@
-# @fett/sql-engine
+# @fett/sql-translator
 
 以 SQL 为统一查询语言的数据库兼容层。支持 **MySQL 5.7 / 8.x / PostgreSQL / SQLite / MongoDB**（MongoDB 为 SQL→Query 翻译），双运行时 **Node ≥ 22.5 / Bun ≥ 1.1**，内置连接池、任务队列（多线程）、结构 JSON 检出。
 
-> 状态：**M1 框架 + M2 MySQL + M3 PG/Mongo 已完成**（双运行时 Node ≥ 22.5 / Bun ≥ 1.1 全部 155 用例通过）；M4（事务/静态数据源/CI/发布）进行中。
+> 状态：**M1-M4 全部完成**（双运行时 Node ≥ 22.5 / Bun ≥ 1.1 全部 172 用例通过）：SQLite/MySQL 5.7/8/PG/Mongo 驱动 + 连接池 + 任务队列（多线程）+ 事务 + 结构 JSON 检出 + 静态数据源 + CI。
 
 ## 快速开始
 
 ```ts
-import { createClient } from '@fett/sql-engine';
+import { createClient } from '@fett/sql-translator';
 
 // 唯一入参：连接配置
 const db = createClient({ type: 'sqlite', database: ':memory:' });
@@ -90,7 +90,7 @@ pnpm test
 ## 多数据源平台
 
 ```ts
-import { createClientManager } from '@fett/sql-engine';
+import { createClientManager } from '@fett/sql-translator';
 
 const manager = createClientManager({ maxClients: 200, lru: { maxIdlePools: 50 } });
 
@@ -107,7 +107,7 @@ await manager.destroyAll();       // 应用退出
 ## 函数式 API
 
 ```ts
-import { runSql, getTableSchema, exportSchemaAsJson } from '@fett/sql-engine';
+import { runSql, getTableSchema, exportSchemaAsJson } from '@fett/sql-translator';
 
 const result = await runSql(dsConfig, { sql, offset: 0, limit: 10 });
 const schema = await exportSchemaAsJson(dsConfig);
@@ -128,6 +128,37 @@ await db.tasks.enqueue({ module: '/abs/path/to/fn.mjs', fn: 'heavyCompute', args
 const task = db.getAllTableSchemas({ onProgress: (p) => console.log(p) });
 await task.promise;
 ```
+
+## 事务
+
+```ts
+await db.withTransaction(async (tx) => {
+  await tx.execute('UPDATE accounts SET balance = balance - 100 WHERE id = 1');
+  await tx.execute('UPDATE accounts SET balance = balance + 100 WHERE id = 2');
+  // fn 抛错自动回滚；也可手动 tx.commit() / tx.rollback()
+});
+```
+SQLite/PG/MySQL 真事务；MongoDB 走 session（需副本集，单实例不支持）。
+
+## 静态数据源（JSON/CSV/Excel → SQLite）
+
+```ts
+import { createStaticSqlitePool, importDataToSqlite, runStaticSql } from '@fett/sql-engine';
+
+const pool = await createStaticSqlitePool({ type: 'sqlite', database: ':memory:' });
+await importDataToSqlite(pool, 'json_data_1_1', [{ id: 1, name: 'alice' }]);
+
+// 用户 SQL 用逻辑表名，自动映射为 SQLite 物理表名
+const res = await runStaticSql(
+  pool,
+  { sql: 'SELECT * FROM 用户表 WHERE price > ?', params: [5] },
+  [{ name: '用户表', datasourceName: '数据源A', sqliteTableName: 'json_data_1_1' }],
+);
+```
+
+## CI
+
+GitHub Actions（.github/workflows/test.yml）：Node + Bun 双运行时，docker 起 4 种数据库跑全量集成测试。
 
 ## 文档
 

@@ -1,5 +1,5 @@
 /**
- * @fett/sql-engine 公共 API 入口
+ * @fett/sql-translator 公共 API 入口
  *
  * 三层使用方式：
  * 1. createClient(config)  —— 极简客户端（单/多数据源都可用）
@@ -9,6 +9,7 @@
 import './driver/index.js'; // 注册内置驱动（sqlite）
 
 export * from './types/index.js';
+export type { TransactionHandle } from './types/transaction.js';
 export * from './errors.js';
 export * from './runtime.js';
 export * from './client/index.js';
@@ -19,6 +20,13 @@ export * from './core/worker/index.js';
 export * from './core/sql/normalize.js';
 export * from './core/sql/pagination.js';
 export * from './core/sql/statement.js';
+export {
+  replaceTableNamesInSql,
+  validateTableNameReplacement,
+  stripQuotes,
+  extractTableNamesFromSql as extractMappedTableNames,
+} from './core/sql/table-mapper.js';
+export * from './optional/static-source.js';
 export * from './core/config.js';
 
 import { SqlEngine } from './facade/engine.js';

@@ -26,12 +26,14 @@ import type { PostgresqlConfig, SchemaOptions } from '../../types/config.js';
 import type {
   ExecResult,
   Field,
+  QueryResult,
   RunSqlRequest,
   TestResult,
   WriteResult,
 } from '../../types/result.js';
 import type { ColumnSchema, ForeignKeySchema, IndexSchema, TableSchema } from '../../types/schema.js';
 import type { IntrospectTask } from '../../types/task.js';
+import type { TransactionHandle } from '../../types/transaction.js';
 import { PostgresqlPoolHandle, buildPgSslConfig } from './pool.js';
 
 type Knex = Awaited<ReturnType<PostgresqlPoolHandle['getKnex']>>;
@@ -197,24 +199,56 @@ export class PostgresqlDriver implements SqlDriver {
   async runSql(pool: PoolHandle, request: RunSqlRequest): Promise<ExecResult> {
     const handle = pool as PostgresqlPoolHandle;
     const k = await handle.getKnex();
+    return this.runSqlWithKnex(k, handle, request);
+  }
+
+  /** 事务/常规共用执行核心（k 可指定为事务连接） */
+  runSqlWithKnex(k: Knex, handle: PostgresqlPoolHandle, request: RunSqlRequest): Promise<ExecResult> {
     const sql = pgParamsToQuestion(normalizeSql(request.sql));
     const type = detectStatementType(sql);
     try {
       if (isDmlStatement(type)) {
-        return await this.runDml(handle, k, sql, request.params, type, request.dml);
+        return this.runDml(handle, k, sql, request.params, type, request.dml);
       }
       if (type === 'SELECT') {
-        return await this.runSelect(k, sql, request);
+        return this.runSelect(k, sql, request);
       }
       if (type === 'DDL' || type === 'TRANSACTION') {
-        const res = (await k.raw(sql, this.bind(request.params))) as { rowCount?: number };
-        return { affectedRows: Number(res.rowCount ?? 0) };
+        return k.raw(sql, this.bind(request.params)).then((res: { rowCount?: number }) => ({
+          affectedRows: Number(res.rowCount ?? 0),
+        }));
       }
       throw new SqlEngineError('QUERY_FAILED', `暂不支持执行 ${type} 语句`);
     } catch (err) {
-      if (err instanceof SqlEngineError) throw err;
-      throw wrapError('QUERY_FAILED', err);
+      if (err instanceof SqlEngineError) return Promise.reject(err);
+      return Promise.reject(wrapError('QUERY_FAILED', err));
     }
+  }
+
+  /** 事务：knex.transaction（fn 抛错自动回滚，成功自动提交） */
+  async withTransaction<T>(
+    pool: PoolHandle,
+    fn: (tx: TransactionHandle) => Promise<T>,
+  ): Promise<T> {
+    const handle = pool as PostgresqlPoolHandle;
+    const k = await handle.getKnex();
+    const self = this;
+    return k.transaction(async (trx) => {
+      const tx: TransactionHandle = {
+        runSql: (req) => self.runSqlWithKnex(trx as Knex, handle, req),
+        query: (sql, params) =>
+          self.runSqlWithKnex(trx as Knex, handle, { sql, params }) as Promise<QueryResult>,
+        execute: (sql, params) =>
+          self.runSqlWithKnex(trx as Knex, handle, { sql, params }) as Promise<WriteResult>,
+        commit: async () => {
+          await (trx.commit() as unknown as Promise<void>);
+        },
+        rollback: async () => {
+          await (trx.rollback() as unknown as Promise<void>);
+        },
+      };
+      return fn(tx);
+    });
   }
 
   private bind(params?: unknown[]): any[] {

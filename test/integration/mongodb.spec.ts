@@ -59,7 +59,9 @@ describeMongo('MongoDB（docker 27017）', () => {
   test('SQL → aggregate：GROUP BY 统计', async () => {
     if (!available) return;
     const res = await db.query('SELECT status, COUNT(*) AS n FROM orders GROUP BY status');
-    const rows = res.rows.map((r: any) => ({ status: r.status, n: Number(r.n) }));
+    const rows = res.rows
+      .map((r: any) => ({ status: r.status, n: Number(r.n) }))
+      .sort((a: any, b: any) => a.status.localeCompare(b.status));
     expect(rows).toEqual([
       { status: 'paid', n: 2 },
       { status: 'pending', n: 1 },

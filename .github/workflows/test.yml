@@ -1,0 +1,85 @@
+name: test
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [node, bun]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Bun
+        if: matrix.runtime == 'bun'
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Typecheck & Build
+        run: pnpm build
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+      - name: Start test databases
+        run: docker compose up -d --wait
+
+      - name: Init fixtures
+        run: pnpm db:init
+
+      - name: Integration tests (Node)
+        if: matrix.runtime == 'node'
+        run: pnpm test:integration
+        env:
+          SQLENGINE_TEST_MYSQL5_HOST: 127.0.0.1
+          SQLENGINE_TEST_MYSQL5_PORT: 33061
+          SQLENGINE_TEST_MYSQL5_USER: root
+          SQLENGINE_TEST_MYSQL5_PASSWORD: root
+          SQLENGINE_TEST_MYSQL8_HOST: 127.0.0.1
+          SQLENGINE_TEST_MYSQL8_PORT: 33062
+          SQLENGINE_TEST_MYSQL8_USER: root
+          SQLENGINE_TEST_MYSQL8_PASSWORD: root
+          SQLENGINE_TEST_PG_HOST: 127.0.0.1
+          SQLENGINE_TEST_PG_PORT: 54321
+          SQLENGINE_TEST_PG_USER: test
+          SQLENGINE_TEST_PG_PASSWORD: test
+          SQLENGINE_TEST_MONGO_URI: mongodb://127.0.0.1:27017
+
+      - name: Integration tests (Bun)
+        if: matrix.runtime == 'bun'
+        run: bun test test/unit test/integration
+        env:
+          SQLENGINE_TEST_MYSQL5_HOST: 127.0.0.1
+          SQLENGINE_TEST_MYSQL5_PORT: 33061
+          SQLENGINE_TEST_MYSQL5_USER: root
+          SQLENGINE_TEST_MYSQL5_PASSWORD: root
+          SQLENGINE_TEST_MYSQL8_HOST: 127.0.0.1
+          SQLENGINE_TEST_MYSQL8_PORT: 33062
+          SQLENGINE_TEST_MYSQL8_USER: root
+          SQLENGINE_TEST_MYSQL8_PASSWORD: root
+          SQLENGINE_TEST_PG_HOST: 127.0.0.1
+          SQLENGINE_TEST_PG_PORT: 54321
+          SQLENGINE_TEST_PG_USER: test
+          SQLENGINE_TEST_PG_PASSWORD: test
+          SQLENGINE_TEST_MONGO_URI: mongodb://127.0.0.1:27017
+
+      - name: Teardown databases
+        if: always()
+        run: docker compose down -v

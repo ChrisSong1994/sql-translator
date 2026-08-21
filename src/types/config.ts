@@ -128,6 +128,8 @@ export interface MongodbConfig extends BaseConfig {
   database?: string;
   /** 默认 admin */
   authSource?: string;
+  /** retryable writes（单实例不支持事务需 false，默认 false） */
+  retryWrites?: boolean;
   ssl?: SslOptions;
 }
 

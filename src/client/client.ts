@@ -19,6 +19,7 @@ import type { TableSchema } from '../types/schema.js';
 import type { IntrospectTask, TaskProgress } from '../types/task.js';
 import { wrapTask } from '../types/task.js';
 import type { TaskQueue } from '../types/queue.js';
+import type { TransactionHandle } from '../types/transaction.js';
 import { TaskQueueImpl } from '../core/task-queue.js';
 import { detectStatementType } from '../core/sql/statement.js';
 import { normalizeSql } from '../core/sql/normalize.js';
@@ -198,10 +199,13 @@ export class DbClient {
     return JSON.stringify(schemas, null, 2);
   }
 
-  /** 事务（M4 落地） */
-  async withTransaction<T>(fn: (tx: unknown) => Promise<T>): Promise<T> {
-    void fn;
-    throw new SqlEngineError('QUERY_FAILED', 'withTransaction 计划在 M4 提供');
+  /** 事务：fn 内所有查询在同一事务/连接内执行；fn 抛错自动回滚 */
+  async withTransaction<T>(fn: (tx: TransactionHandle) => Promise<T>): Promise<T> {
+    if (!this.driver.withTransaction) {
+      throw new SqlEngineError('QUERY_FAILED', `方言 ${this.driver.dialect} 不支持事务`);
+    }
+    const handle = await this.getHandle();
+    return this.driver.withTransaction(handle, fn);
   }
 }
 

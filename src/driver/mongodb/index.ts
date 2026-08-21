@@ -9,9 +9,17 @@ import { detectStatementType, isDmlStatement, hasDmlWhere, countInsertValueRows 
 import { createTask } from '../../types/task.js';
 import type { SqlDriver, PoolHandle } from '../interface.js';
 import type { MongodbConfig, SchemaOptions } from '../../types/config.js';
-import type { ExecResult, Field, RunSqlRequest, TestResult, WriteResult } from '../../types/result.js';
+import type {
+  ExecResult,
+  Field,
+  QueryResult,
+  RunSqlRequest,
+  TestResult,
+  WriteResult,
+} from '../../types/result.js';
 import type { TableSchema } from '../../types/schema.js';
 import type { IntrospectTask } from '../../types/task.js';
+import type { TransactionHandle } from '../../types/transaction.js';
 import type { Document } from 'mongodb';
 import { MongoPoolHandle } from './pool.js';
 import { translateSelect, translateWhereToMatch, mergeMatch } from './sql-translator.js';
@@ -94,19 +102,61 @@ export class MongoDriver implements SqlDriver {
 
   async runSql(pool: PoolHandle, request: RunSqlRequest): Promise<ExecResult> {
     const handle = pool as MongoPoolHandle;
+    return this.runSqlInternal(handle, request, undefined);
+  }
+
+  /** 事务/常规共用执行核心（session 可指定为事务会话） */
+  runSqlInternal(
+    handle: MongoPoolHandle,
+    request: RunSqlRequest,
+    session?: import('mongodb').ClientSession,
+  ): Promise<ExecResult> {
     const sql = normalizeSql(request.sql);
     const type = detectStatementType(sql);
     try {
       if (isDmlStatement(type)) {
-        return await this.runDml(handle, sql, request.params, type, request.dml);
+        return this.runDml(handle, sql, request.params, type, request.dml, session);
       }
       if (type === 'SELECT') {
-        return await this.runSelect(handle, sql, request);
+        return this.runSelect(handle, sql, request, session);
       }
       throw new SqlEngineError('QUERY_FAILED', `MongoDB 不支持执行 ${type} 语句`);
     } catch (err) {
-      if (err instanceof SqlEngineError) throw err;
-      throw wrapError('QUERY_FAILED', err);
+      if (err instanceof SqlEngineError) return Promise.reject(err);
+      return Promise.reject(wrapError('QUERY_FAILED', err));
+    }
+  }
+
+  /** 事务：session.withTransaction（需要副本集/分片集群，单实例不支持） */
+  async withTransaction<T>(
+    pool: PoolHandle,
+    fn: (tx: TransactionHandle) => Promise<T>,
+  ): Promise<T> {
+    const handle = pool as MongoPoolHandle;
+    const client = await handle.getClient();
+    const session = client.startSession();
+    const self = this;
+    try {
+      let result: T;
+      await session.withTransaction(async () => {
+        const tx: TransactionHandle = {
+          runSql: (req) => self.runSqlInternal(handle, req, session),
+          query: (sql, params) =>
+            self.runSqlInternal(handle, { sql, params }, session) as Promise<QueryResult>,
+          execute: (sql, params) =>
+            self.runSqlInternal(handle, { sql, params }, session) as Promise<WriteResult>,
+          commit: async () => {
+            await session.commitTransaction();
+          },
+          rollback: async () => {
+            await session.abortTransaction();
+          },
+        };
+        result = await fn(tx);
+      });
+      return result!;
+    } finally {
+      await session.endSession().catch(() => undefined);
     }
   }
 
@@ -115,6 +165,7 @@ export class MongoDriver implements SqlDriver {
     handle: MongoPoolHandle,
     sql: string,
     request: RunSqlRequest,
+    session?: import('mongodb').ClientSession,
   ): Promise<any> {
     const db = await handle.getDb();
     const parsed = translateSelect(sql);
@@ -129,14 +180,15 @@ export class MongoDriver implements SqlDriver {
 
     if (parsed.type === 'query' && parsed.collection) {
       const query = mergeMatch(parsed.query, additionalMatch);
+      const findOpts = session ? { session } : {};
       const docs = await db
         .collection(parsed.collection)
-        .find(query, Object.keys(projection).length ? { projection } : undefined)
+        .find(query, Object.keys(projection).length ? { projection, ...findOpts } : findOpts)
         .skip(offset)
         .limit(limit)
         .toArray();
       const total = standardPagination
-        ? await db.collection(parsed.collection).countDocuments(query)
+        ? await db.collection(parsed.collection).countDocuments(query, session ? { session } : undefined)
         : docs.length;
       return {
         rows: docs,
@@ -155,14 +207,17 @@ export class MongoDriver implements SqlDriver {
       const total = standardPagination
         ? await db
             .collection(parsed.collections[0])
-            .aggregate([...pipeline, { $count: 'total' }])
+            .aggregate([...pipeline, { $count: 'total' }], session ? { session } : undefined)
             .toArray()
             .then((r) => Number(r[0]?.total ?? 0))
         : 0;
       if (standardPagination) {
         pipeline.push({ $skip: offset }, { $limit: limit });
       }
-      const docs = await db.collection(parsed.collections[0]).aggregate(pipeline).toArray();
+      const docs = await db
+        .collection(parsed.collections[0])
+        .aggregate(pipeline, session ? { session } : undefined)
+        .toArray();
       return {
         rows: docs,
         fields: inferFieldsFromRows(docs),
@@ -182,6 +237,7 @@ export class MongoDriver implements SqlDriver {
     params: unknown[] | undefined,
     type: 'INSERT' | 'UPDATE' | 'DELETE',
     dmlOverride?: import('../../types/config.js').DmlOptions,
+    session?: import('mongodb').ClientSession,
   ): Promise<WriteResult> {
     const db = await handle.getDb();
     const dml = dmlOverride ?? handle.config.dml ?? {};
@@ -207,21 +263,26 @@ export class MongoDriver implements SqlDriver {
         );
       }
       const coll = db.collection(spec.collection);
+      const opts = session ? { session } : undefined;
       if (documents.length === 1) {
-        const { insertedId } = await coll.insertOne(documents[0]!);
+        const { insertedId } = await coll.insertOne(documents[0]!, opts);
         return { affectedRows: 1, insertId: String(insertedId) };
       }
-      const res = await coll.insertMany(documents);
+      const res = await coll.insertMany(documents, opts);
       return { affectedRows: documents.length, insertId: String(Object.values(res.insertedIds)[0]) };
     }
 
     if (type === 'UPDATE') {
-      const res = await db.collection(spec.collection).updateMany(filter, spec.updateDoc ?? {});
+      const res = await db
+        .collection(spec.collection)
+        .updateMany(filter, spec.updateDoc ?? {}, session ? { session } : undefined);
       return { affectedRows: res.modifiedCount };
     }
 
     // DELETE
-    const res = await db.collection(spec.collection).deleteMany(filter);
+    const res = await db
+      .collection(spec.collection)
+      .deleteMany(filter, session ? { session } : undefined);
     return { affectedRows: res.deletedCount };
   }
 

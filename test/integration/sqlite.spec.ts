@@ -266,7 +266,7 @@ describe('错误路径', () => {
 
 describe('文件库持久化', () => {
   test('两个 client 共享文件库（注册表同池）', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'sql-engine-'));
+    const dir = await mkdtemp(join(tmpdir(), 'sql-translator-'));
     const dbPath = join(dir, 'persist.db');
     try {
       const a = createClient({ type: 'sqlite', database: dbPath });

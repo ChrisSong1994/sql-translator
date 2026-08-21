@@ -7,6 +7,7 @@ import type { ConnectionConfig, SchemaOptions } from '../types/config.js';
 import type { ExecResult, Field, RunSqlRequest, TestResult } from '../types/result.js';
 import type { TableSchema } from '../types/schema.js';
 import type { IntrospectTask } from '../types/task.js';
+import type { TransactionHandle } from '../types/transaction.js';
 import type { PoolStats } from '../types/manager.js';
 
 /** 连接池句柄（registry 生命周期管理单元） */
@@ -44,5 +45,6 @@ export interface SqlDriver {
   getRowsCount(pool: PoolHandle, table: string, whereClause?: string): Promise<number>;
   getTableSchema(pool: PoolHandle, table: string, opts?: SchemaOptions): Promise<TableSchema>;
   getAllTableSchemas?(pool: PoolHandle, opts?: SchemaOptions): IntrospectTask<TableSchema[]>;
-  withTransaction?<T>(pool: PoolHandle, fn: (tx: unknown) => Promise<T>): Promise<T>;
+  /** 事务：fn 内所有查询在同一事务/连接内执行；fn 抛错自动回滚 */
+  withTransaction?<T>(pool: PoolHandle, fn: (tx: TransactionHandle) => Promise<T>): Promise<T>;
 }

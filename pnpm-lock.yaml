@@ -204,7 +204,7 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
-  bson@7.3.2: ccfa5fe8c7be069e0632f62d09e673d956b81fe5aebd2cf5d8c26b5ef343124b
+  bson@7.3.2: 6d5c4cd822f5d4149bcda7b7254f9cc1b28f1044aa4fc08158576f6082911c26
 
 importers:
 
@@ -1291,7 +1291,7 @@ snapshots:
 
   bson@7.2.0: {}
 
-  bson@7.3.2(patch_hash=ccfa5fe8c7be069e0632f62d09e673d956b81fe5aebd2cf5d8c26b5ef343124b): {}
+  bson@7.3.2(patch_hash=6d5c4cd822f5d4149bcda7b7254f9cc1b28f1044aa4fc08158576f6082911c26): {}
 
   chai@6.2.2: {}
 
@@ -1491,7 +1491,7 @@ snapshots:
   mongodb@7.5.0:
     dependencies:
       '@mongodb-js/saslprep': 1.5.0
-      bson: 7.3.2(patch_hash=ccfa5fe8c7be069e0632f62d09e673d956b81fe5aebd2cf5d8c26b5ef343124b)
+      bson: 7.3.2(patch_hash=6d5c4cd822f5d4149bcda7b7254f9cc1b28f1044aa4fc08158576f6082911c26)
       mongodb-connection-string-url: 7.0.2
 
   ms@2.1.2: {}

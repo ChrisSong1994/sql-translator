@@ -25,6 +25,7 @@ import type { SqliteConfig } from '../../types/config.js';
 import type {
   ExecResult,
   Field,
+  QueryResult,
   RunSqlRequest,
   TestResult,
   WriteResult,
@@ -32,12 +33,13 @@ import type {
 import type { ColumnSchema, ForeignKeySchema, IndexSchema, TableSchema } from '../../types/schema.js';
 import type { IntrospectTask } from '../../types/task.js';
 import { createTask } from '../../types/task.js';
+import type { TransactionHandle } from '../../types/transaction.js';
 import { getSqliteBackend, releaseSqliteBackend } from './store.js';
 import type { SqliteBackend } from './backend.js';
 
 // ==================== 连接池句柄 ====================
 
-class SqlitePoolHandle implements PoolHandle {
+export class SqlitePoolHandle implements PoolHandle {
   readonly fingerprint: string;
   readonly config: SqliteConfig;
   private backend: SqliteBackend | null = null;
@@ -192,27 +194,83 @@ export class SqliteDriver implements SqlDriver {
   }
 
   async runSql(pool: PoolHandle, request: RunSqlRequest): Promise<ExecResult> {
+    const handle = pool as SqlitePoolHandle;
+    const backend = await handle.getBackend();
+    return this.runSqlWithBackend(handle, backend, request);
+  }
+
+  /** 事务/常规共用执行核心（backend 可指定） */
+  runSqlWithBackend(
+    handle: SqlitePoolHandle,
+    backend: SqliteBackend,
+    request: RunSqlRequest,
+  ): Promise<ExecResult> {
     try {
-      const handle = pool as SqlitePoolHandle;
-      const backend = await handle.getBackend();
       const sql = normalizeSql(request.sql);
       const type = detectStatementType(sql);
 
       if (isDmlStatement(type)) {
-        return this.runDml(handle, backend, sql, request.params, type, request.dml);
+        return Promise.resolve(this.runDml(handle, backend, sql, request.params, type, request.dml));
       }
       if (type === 'SELECT') {
-        return this.runSelect(backend, sql, request);
+        return Promise.resolve(this.runSelect(backend, sql, request));
       }
       if (type === 'DDL' || type === 'TRANSACTION') {
         // DDL / 事务控制语句透传执行（返回受影响行数）
         const r = backend.prepare(sql).run(...(request.params ?? []));
-        return { affectedRows: r.changes };
+        return Promise.resolve({ affectedRows: r.changes });
       }
       throw new SqlEngineError('QUERY_FAILED', `暂不支持执行 ${type} 语句`);
     } catch (err) {
-      if (err instanceof SqlEngineError) throw err;
-      throw wrapError('QUERY_FAILED', err);
+      if (err instanceof SqlEngineError) return Promise.reject(err);
+      return Promise.reject(wrapError('QUERY_FAILED', err));
+    }
+  }
+
+  /** 事务：BEGIN IMMEDIATE → fn → COMMIT/ROLLBACK（单连接独占） */
+  async withTransaction<T>(
+    pool: PoolHandle,
+    fn: (tx: TransactionHandle) => Promise<T>,
+  ): Promise<T> {
+    const handle = pool as SqlitePoolHandle;
+    const backend = await handle.getBackend();
+    const self = this;
+    backend.exec('BEGIN IMMEDIATE');
+    let finished = false;
+    const tx: TransactionHandle = {
+      runSql: (req) => self.runSqlWithBackend(handle, backend, req),
+      query: (sql, params) =>
+        self.runSqlWithBackend(handle, backend, { sql, params }) as Promise<QueryResult>,
+      execute: (sql, params) =>
+        self.runSqlWithBackend(handle, backend, { sql, params }) as Promise<WriteResult>,
+      commit: async () => {
+        if (finished) return;
+        backend.exec('COMMIT');
+        finished = true;
+      },
+      rollback: async () => {
+        if (finished) return;
+        backend.exec('ROLLBACK');
+        finished = true;
+      },
+    };
+    try {
+      const result = await fn(tx);
+      if (!finished) {
+        backend.exec('COMMIT');
+        finished = true;
+      }
+      return result;
+    } catch (err) {
+      if (!finished) {
+        try {
+          backend.exec('ROLLBACK');
+        } catch {
+          // 已回滚则忽略
+        }
+        finished = true;
+      }
+      throw err;
     }
   }
 

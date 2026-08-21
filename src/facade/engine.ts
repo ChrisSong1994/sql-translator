@@ -97,6 +97,23 @@ export class SqlEngine {
     );
   }
 
+  /** 事务：fn 内所有查询在同一事务内执行 */
+  async withTransaction<T>(
+    config: ConnectionConfig,
+    fn: (tx: import('../types/transaction.js').TransactionHandle) => Promise<T>,
+  ): Promise<T> {
+    const driver = getDriver(config.type);
+    if (!driver.withTransaction) {
+      throw new SqlEngineError('QUERY_FAILED', `方言 ${driver.dialect} 不支持事务`);
+    }
+    const handle = await this.registry.getPool(config);
+    try {
+      return await driver.withTransaction(handle, fn);
+    } finally {
+      this.registry.release(configKey(config));
+    }
+  }
+
   async exportSchemaAsJson(config: ConnectionConfig, opts?: SchemaOptions): Promise<string> {
     const task = this.getAllTableSchemas(config, opts);
     const schemas = await task.promise;
