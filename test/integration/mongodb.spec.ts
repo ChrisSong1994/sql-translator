@@ -74,6 +74,25 @@ describeMongo('MongoDB（docker 27017）', () => {
     expect(res.rows).toHaveLength(2);
   });
 
+  test('聚合 SQL 自带 LIMIT → pipeline 透传 $limit，total 近似', async () => {
+    if (!available) return;
+    const res = await db.run({ sql: 'SELECT status, COUNT(*) AS n FROM orders GROUP BY status LIMIT 1' });
+    expect(res.rows).toHaveLength(1);
+    expect(res.total).toBe(1); // 近似值（rows.length）
+  });
+
+  test('无 LIMIT 的 SQL → 使用请求级 offset/limit（回归：noql 默认 limit=100 误判）', async () => {
+    if (!available) return;
+    // noql 对无 LIMIT 的 SELECT 返回 parsed.limit=100（默认值），
+    // 此前会导致 sqlHasPagination=true → 忽略请求级 offset/limit 且 total 用近似值
+    const res = await db.run({ sql: 'SELECT * FROM users', offset: 1, limit: 2 });
+    expect(res.rows).toHaveLength(2);
+    expect(res.rows.map((r: any) => r.name).sort()).toEqual(['bob', 'carol']);
+    expect(res.total).toBe(3); // 标准分页 → countDocuments 全量计数
+    expect(res.offset).toBe(1);
+    expect(res.limit).toBe(2);
+  });
+
   test('whereClause 与 SQL 条件 $and 合并', async () => {
     if (!available) return;
     const res = await db.run({ sql: 'SELECT * FROM users', whereClause: 'age >= 25' });

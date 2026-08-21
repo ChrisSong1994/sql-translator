@@ -5,6 +5,7 @@
  */
 import { SqlEngineError, wrapError } from '../../errors.js';
 import { normalizeSql } from '../../core/sql/normalize.js';
+import { hasPaginationClause } from '../../core/sql/pagination.js';
 import { detectStatementType, isDmlStatement, hasDmlWhere, countInsertValueRows } from '../../core/sql/statement.js';
 import { createTask } from '../../types/task.js';
 import type { SqlDriver, PoolHandle } from '../interface.js';
@@ -194,12 +195,16 @@ export class MongoDriver implements SqlDriver {
     const db = await handle.getDb();
     const parsed = translateSelect(sql);
     const additionalMatch = translateWhereToMatch(request.whereClause ?? '');
-    // SQL 自带分页 → 用 noql 解析出的 limit/offset；否则用请求级标准分页
-    const sqlHasPagination = !!parsed.limit || !!parsed.offset;
+    // SQL 显式分页 → 用 noql 解析出的 limit/offset；否则用请求级标准分页
+    // 注意：不能依赖 parsed.limit（noql 对无 LIMIT 的 SQL 返回默认 100，会误判为自带分页）
+    const sqlHasPagination = hasPaginationClause(sql);
     const standardPagination = !sqlHasPagination;
 
     const offset = Math.max(Number(parsed.offset ?? request.offset ?? 0), 0);
-    const limit = Math.max(Number(parsed.limit ?? request.limit ?? 100), 0);
+    const limit = Math.max(
+      Number(standardPagination ? (request.limit ?? 100) : (parsed.limit ?? request.limit ?? 100)),
+      0,
+    );
     const projection = toMongoProjection(parsed.projection);
 
     if (parsed.type === 'query' && parsed.collection) {
@@ -228,16 +233,27 @@ export class MongoDriver implements SqlDriver {
       if (Object.keys(additionalMatch).length) {
         pipeline.push({ $match: additionalMatch });
       }
-      const total = standardPagination
-        ? await db
-            .collection(parsed.collections[0])
-            .aggregate([...pipeline, { $count: 'total' }], session ? { session } : undefined)
-            .toArray()
-            .then((r) => Number(r[0]?.total ?? 0))
-        : 0;
       if (standardPagination) {
+        // 标准分页：count + 请求级 skip/limit
+        const total = await db
+          .collection(parsed.collections[0])
+          .aggregate([...pipeline, { $count: 'total' }], session ? { session } : undefined)
+          .toArray()
+          .then((r) => Number(r[0]?.total ?? 0));
         pipeline.push({ $skip: offset }, { $limit: limit });
+        const docs = await db
+          .collection(parsed.collections[0])
+          .aggregate(pipeline, session ? { session } : undefined)
+          .toArray();
+        return {
+          rows: docs,
+          fields: inferFieldsFromRows(docs),
+          total,
+          offset,
+          limit,
+        };
       }
+      // SQL 自带分页（noql pipeline 已含 $limit/$skip）→ 直接执行，total 用近似值（rows.length）
       const docs = await db
         .collection(parsed.collections[0])
         .aggregate(pipeline, session ? { session } : undefined)
@@ -245,7 +261,7 @@ export class MongoDriver implements SqlDriver {
       return {
         rows: docs,
         fields: inferFieldsFromRows(docs),
-        total,
+        total: docs.length,
         offset,
         limit,
       };
