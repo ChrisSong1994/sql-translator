@@ -144,7 +144,7 @@ export class MysqlDriver implements SqlDriver {
     const type = detectStatementType(sql);
     try {
       if (isDmlStatement(type)) {
-        return await this.runDml(handle, k, sql, request.params, type);
+        return await this.runDml(handle, k, sql, request.params, type, request.dml);
       }
       if (type === 'SELECT') {
         return await this.runSelect(handle, k, sql, request);
@@ -211,8 +211,9 @@ export class MysqlDriver implements SqlDriver {
     sql: string,
     params: unknown[] | undefined,
     type: DmlStatementType,
+    dmlOverride?: import('../../types/config.js').DmlOptions,
   ): Promise<WriteResult> {
-    const dml = handle.config.dml ?? {};
+    const dml = dmlOverride ?? handle.config.dml ?? {};
     const args = params ?? [];
 
     // 安全护栏：无 WHERE 的 UPDATE/DELETE

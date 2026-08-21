@@ -1,0 +1,2 @@
+patchedDependencies:
+  bson@7.3.2: patches/bson@7.3.2.patch

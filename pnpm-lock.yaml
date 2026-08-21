@@ -203,6 +203,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  bson@7.3.2: ccfa5fe8c7be069e0632f62d09e673d956b81fe5aebd2cf5d8c26b5ef343124b
+
 importers:
 
   .:
@@ -1288,7 +1291,7 @@ snapshots:
 
   bson@7.2.0: {}
 
-  bson@7.3.2: {}
+  bson@7.3.2(patch_hash=ccfa5fe8c7be069e0632f62d09e673d956b81fe5aebd2cf5d8c26b5ef343124b): {}
 
   chai@6.2.2: {}
 
@@ -1488,7 +1491,7 @@ snapshots:
   mongodb@7.5.0:
     dependencies:
       '@mongodb-js/saslprep': 1.5.0
-      bson: 7.3.2
+      bson: 7.3.2(patch_hash=ccfa5fe8c7be069e0632f62d09e673d956b81fe5aebd2cf5d8c26b5ef343124b)
       mongodb-connection-string-url: 7.0.2
 
   ms@2.1.2: {}

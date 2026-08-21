@@ -199,7 +199,7 @@ export class SqliteDriver implements SqlDriver {
       const type = detectStatementType(sql);
 
       if (isDmlStatement(type)) {
-        return this.runDml(handle, backend, sql, request.params, type);
+        return this.runDml(handle, backend, sql, request.params, type, request.dml);
       }
       if (type === 'SELECT') {
         return this.runSelect(backend, sql, request);
@@ -250,8 +250,10 @@ export class SqliteDriver implements SqlDriver {
     sql: string,
     params: unknown[] | undefined,
     type: DmlStatementType,
+    dmlOverride?: import('../../types/config.js').DmlOptions,
   ): WriteResult {
-    const dml = handle.config.dml ?? {};
+    // dml 优先取请求级（client 按自身配置注入），避免池共享串配置
+    const dml = dmlOverride ?? handle.config.dml ?? {};
     const args = params ?? [];
 
     // 安全护栏：无 WHERE 的 UPDATE/DELETE

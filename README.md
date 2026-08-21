@@ -2,7 +2,7 @@
 
 以 SQL 为统一查询语言的数据库兼容层。支持 **MySQL 5.7 / 8.x / PostgreSQL / SQLite / MongoDB**（MongoDB 为 SQL→Query 翻译），双运行时 **Node ≥ 22.5 / Bun ≥ 1.1**，内置连接池、任务队列（多线程）、结构 JSON 检出。
 
-> 状态：**M1 框架 + M2 MySQL 已完成**（双运行时 Node ≥ 22.5 / Bun ≥ 1.1 全部测试通过）；M3（PostgreSQL/MongoDB）进行中。
+> 状态：**M1 框架 + M2 MySQL + M3 PG/Mongo 已完成**（双运行时 Node ≥ 22.5 / Bun ≥ 1.1 全部 155 用例通过）；M4（事务/静态数据源/CI/发布）进行中。
 
 ## 快速开始
 
@@ -46,21 +46,46 @@ const schema = await db.getTableSchema('users');             // 结构 JSON
 - 分页包装按版本能力矩阵自动选择：MySQL 8 用 CTE，5.7 用派生表
 - 无 WHERE 的 UPDATE/DELETE 默认拦截（DML_BLOCKED）
 
+## MongoDB（SQL → Query / DML 翻译）
+
+```ts
+const db = createClient({ type: 'mongodb', uri: 'mongodb://127.0.0.1:27017', database: 'test' });
+
+// SQL → find / aggregate（@synatic/noql）
+const res = await db.query('SELECT * FROM users WHERE age > ?', [18]);
+await db.query('SELECT status, COUNT(*) AS n FROM orders GROUP BY status');
+
+// SQL → insert/update/delete（node-sql-parser + noql WHERE 翻译）
+await db.execute("INSERT INTO users (name, age) VALUES ('dave', 40)");
+await db.execute("UPDATE users SET age = age + 1 WHERE name = 'dave'");
+await db.execute("DELETE FROM users WHERE name = 'dave'");
+
+// 结构检出：采样（嵌套对象/数组/ObjectId），长任务可取消
+const schema = await db.getTableSchema('users');
+```
+
+- WHERE 条件翻译与 SELECT 路径一致（=, >, <, LIKE, IN, BETWEEN, AND/OR, IS NULL）
+- SET 支持 `$set` 与算术自增 `$inc`；无 WHERE 的 UPDATE/DELETE 默认拦截
+- 结构检出为长任务（分批采样 + 进度 + 取消 + TTL 缓存）
+
 ## 本地测试数据库（docker compose）
 
 ```bash
-pnpm db:up      # 启动 mysql5(33061) / mysql8(33062)
-pnpm db:init    # 初始化种子数据（utf8mb4 连接，避免中文注释乱码）
+pnpm db:up      # 启动 mysql5(33061) / mysql8(33062) / postgres(54321) / mongodb(27017)
+pnpm db:init    # 初始化种子数据（MySQL 走 utf8mb4 脚本，Mongo 注入）
 
-# 跑 MySQL 集成测试（含 5.7/8 双版本）
+# 跑全部集成测试（含 4 种数据库）
 SQLENGINE_TEST_MYSQL5_HOST=127.0.0.1 SQLENGINE_TEST_MYSQL5_PORT=33061 \
 SQLENGINE_TEST_MYSQL5_USER=root SQLENGINE_TEST_MYSQL5_PASSWORD=root \
 SQLENGINE_TEST_MYSQL8_HOST=127.0.0.1 SQLENGINE_TEST_MYSQL8_PORT=33062 \
 SQLENGINE_TEST_MYSQL8_USER=root SQLENGINE_TEST_MYSQL8_PASSWORD=root \
-pnpm test:mysql
+SQLENGINE_TEST_PG_HOST=127.0.0.1 SQLENGINE_TEST_PG_PORT=54321 \
+SQLENGINE_TEST_MONGO_URI=mongodb://127.0.0.1:27017 \
+pnpm test
 ```
 
-> 国内网络下镜像拉取慢时可用镜像前缀：`MYSQL5_IMAGE=docker.m.daocloud.io/library/mysql:5.7 MYSQL8_IMAGE=docker.m.daocloud.io/library/mysql:8.0 pnpm db:up`
+> 国内网络镜像慢时：`MYSQL5_IMAGE=docker.m.daocloud.io/library/mysql:5.7 MYSQL8_IMAGE=docker.m.daocloud.io/library/mysql:8.0 MONGO_IMAGE=docker.m.daocloud.io/library/mongo:7 pnpm db:up`
+> 说明：bson@7.3.2 已打补丁（Bun 下 node:v8 兼容），见 `patches/` + package.json `pnpm.patchedDependencies`
 
 ## 多数据源平台
 

@@ -56,18 +56,18 @@ export function isDmlStatement(type: StatementType): type is DmlStatementType {
 }
 
 /**
- * 提取 UPDATE / DELETE 语句的 WHERE 子句原文
+ * 提取 UPDATE / DELETE 语句的 WHERE 子句原文（保留字符串字面量）
+ * 在剥离版上定位 WHERE 位置，再从原始 SQL 截取到末尾（两版字符位置一致）
  * 返回 null 表示无 WHERE（用于 DML 安全护栏）
  */
 export function extractDmlWhere(sql: string): string | null {
-  const s = stripSqlForSearch(sql);
+  const stripped = stripSqlForSearch(sql);
   const type = detectStatementType(sql);
   if (type !== 'UPDATE' && type !== 'DELETE') return null;
 
-  // 从首个 UPDATE/DELETE 之后的 WHERE 关键字开始截取（剥离字符串后定位）
-  const m = s.match(/\bwhere\b/i);
+  const m = stripped.match(/\bwhere\b/i);
   if (!m || m.index === undefined) return null;
-  return s.slice(m.index);
+  return sql.slice(m.index);
 }
 
 /** UPDATE/DELETE 是否有 WHERE 子句 */

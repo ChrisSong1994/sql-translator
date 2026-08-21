@@ -90,10 +90,12 @@ export class DbClient {
 
   // ==================== SQL 执行 ====================
 
-  /** 完整执行入口（SELECT → QueryResult，DML → WriteResult） */
+  /** 完整执行入口（SELECT → QueryResult，DML → WriteResult）
+   * dml 选项按本 client 配置注入（池共享时 handle 配置不可靠） */
   async run(request: RunSqlRequest): Promise<ExecResult> {
     const handle = await this.getHandle();
-    return this.driver.runSql(handle, request);
+    const req: RunSqlRequest = request.dml ? request : { ...request, dml: this.config.dml };
+    return this.driver.runSql(handle, req);
   }
 
   /** SELECT 查询 */

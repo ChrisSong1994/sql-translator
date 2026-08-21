@@ -37,3 +37,30 @@ services:
       timeout: 5s
       retries: 30
       start_period: 10s
+
+  postgres:
+    image: ${PG_IMAGE:-postgres:16-alpine}
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: testdb
+    ports:
+      - "54321:5432"
+    volumes:
+      - ./test/fixtures/postgresql/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d testdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  mongodb:
+    image: ${MONGO_IMAGE:-mongo:7}
+    ports:
+      - "27017:27017"
+    # 种子数据由 scripts/init-fixtures.mjs 注入（Mongo 无挂载式 init）
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 30

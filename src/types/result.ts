@@ -48,6 +48,8 @@ export interface RunSqlRequest {
   whereClause?: string;
   /** 参数绑定占位符值（? / $1），与 sql 中的占位符一一对应 */
   params?: unknown[];
+  /** DML 安全策略（client 层按自身配置注入；池共享时 handle.config.dml 不可靠） */
+  dml?: import('./config.js').DmlOptions;
 }
 
 /** 连接测试结果 */
