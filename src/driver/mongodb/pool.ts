@@ -29,12 +29,12 @@ export function buildMongoOptions(config: MongodbConfig): Record<string, unknown
   };
   if (config.ssl?.enabled) {
     options.tls = true;
-    const tlsOptions: Record<string, unknown> = {};
-    if (config.ssl.ca) tlsOptions.ca = Buffer.from(config.ssl.ca);
-    if (config.ssl.cert) tlsOptions.cert = Buffer.from(config.ssl.cert);
-    if (config.ssl.key) tlsOptions.key = Buffer.from(config.ssl.key);
-    tlsOptions.rejectUnauthorized = config.ssl.rejectUnauthorized ?? false;
-    if (Object.keys(tlsOptions).length > 0) options.tlsOptions = tlsOptions;
+    // mongodb driver 7.x 支持 Node TLS socket 选项（ca/cert/key/rejectUnauthorized）直接放顶层；
+    // 注意 tlsOptions 仅用于 CSFLE KMS，不能用于普通连接
+    if (config.ssl.ca) options.ca = Buffer.from(config.ssl.ca);
+    if (config.ssl.cert) options.cert = Buffer.from(config.ssl.cert);
+    if (config.ssl.key) options.key = Buffer.from(config.ssl.key);
+    options.rejectUnauthorized = config.ssl.rejectUnauthorized ?? false;
   }
   return options;
 }

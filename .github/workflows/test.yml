@@ -38,6 +38,9 @@ jobs:
       - name: Unit tests
         run: pnpm test:unit
 
+      - name: Generate SSL certs (SSL 集成测试)
+        run: bash scripts/gen-ssl-certs.sh
+
       - name: Start test databases
         run: docker compose up -d --wait
 
@@ -69,6 +72,11 @@ jobs:
           SQLTRANSLATOR_TEST_PG_PASSWORD: test
           SQLTRANSLATOR_TEST_MONGO_URI: mongodb://127.0.0.1:27017
           SQLTRANSLATOR_TEST_MONGO_RS_URI: mongodb://127.0.0.1:27018
+          SQLTRANSLATOR_TEST_MYSQL8_SSL_HOST: 127.0.0.1
+          SQLTRANSLATOR_TEST_MYSQL8_SSL_PORT: 33064
+          SQLTRANSLATOR_TEST_PG_SSL_HOST: 127.0.0.1
+          SQLTRANSLATOR_TEST_PG_SSL_PORT: 54322
+          SQLTRANSLATOR_TEST_MONGO_SSL_URI: mongodb://127.0.0.1:27019
 
       - name: Integration tests (Bun)
         if: matrix.runtime == 'bun'
@@ -88,6 +96,11 @@ jobs:
           SQLTRANSLATOR_TEST_PG_PASSWORD: test
           SQLTRANSLATOR_TEST_MONGO_URI: mongodb://127.0.0.1:27017
           SQLTRANSLATOR_TEST_MONGO_RS_URI: mongodb://127.0.0.1:27018
+          SQLTRANSLATOR_TEST_MYSQL8_SSL_HOST: 127.0.0.1
+          SQLTRANSLATOR_TEST_MYSQL8_SSL_PORT: 33064
+          SQLTRANSLATOR_TEST_PG_SSL_HOST: 127.0.0.1
+          SQLTRANSLATOR_TEST_PG_SSL_PORT: 54322
+          SQLTRANSLATOR_TEST_MONGO_SSL_URI: mongodb://127.0.0.1:27019
 
       - name: Teardown databases
         if: always()

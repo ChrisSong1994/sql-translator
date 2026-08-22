@@ -4,7 +4,10 @@
  * 用法：node scripts/init-fixtures.mjs
  * 环境变量：
  *   SQLTRANSLATOR_TEST_MYSQL5_HOST/PORT、SQLTRANSLATOR_TEST_MYSQL8_HOST/PORT（默认 33061/33062）
+ *   SQLTRANSLATOR_TEST_MYSQL8_SSL_HOST/PORT（默认 33064，走 SSL）
  *   SQLTRANSLATOR_TEST_MONGO_URI（默认 mongodb://127.0.0.1:27017）
+ *   SQLTRANSLATOR_TEST_MONGO_SSL_URI（默认 mongodb://127.0.0.1:27019，走 TLS）
+ *   SQLTRANSLATOR_TEST_SSL_CA（默认 test/fixtures/ssl/ca.pem）
  *
  * 说明：
  * - MySQL 不用 docker-entrypoint 挂载（容器默认 latin1 导致中文注释双重编码），统一脚本 utf8mb4 初始化
@@ -18,6 +21,12 @@ import { fileURLToPath } from 'node:url';
 
 const INIT_SQL = fileURLToPath(new URL('../test/fixtures/mysql/init.sql', import.meta.url));
 const sql = await readFile(INIT_SQL, 'utf8');
+
+// SSL 集成测试：CA 证书（不存在时 SSL 目标跳过）
+const SSL_CA_PATH =
+  process.env.SQLTRANSLATOR_TEST_SSL_CA ??
+  fileURLToPath(new URL('../test/fixtures/ssl/ca.pem', import.meta.url));
+const caPem = await readFile(SSL_CA_PATH, 'utf8').catch(() => undefined);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -34,6 +43,8 @@ async function connectWithRetry(target, attempts = 8, delayMs = 3000) {
         charset: 'utf8mb4',
         multipleStatements: true,
         connectTimeout: 5000,
+        // SSL 目标：带 CA 证书（rejectUnauthorized=false 容忍自签）
+        ...(target.ssl ? { ssl: { ca: target.ssl.ca, rejectUnauthorized: false } } : {}),
       });
     } catch (err) {
       lastErr = err;
@@ -62,6 +73,17 @@ const mysqlTargets = [
     port: Number(process.env.SQLTRANSLATOR_TEST_MARIADB_PORT ?? 33063),
     host: process.env.SQLTRANSLATOR_TEST_MARIADB_HOST ?? '127.0.0.1',
   },
+  // SSL 目标（证书未生成时跳过）
+  ...(caPem
+    ? [
+        {
+          name: 'mysql8-ssl',
+          port: Number(process.env.SQLTRANSLATOR_TEST_MYSQL8_SSL_PORT ?? 33064),
+          host: process.env.SQLTRANSLATOR_TEST_MYSQL8_SSL_HOST ?? '127.0.0.1',
+          ssl: { ca: caPem },
+        },
+      ]
+    : []),
 ];
 
 for (const target of mysqlTargets) {
@@ -80,28 +102,55 @@ for (const target of mysqlTargets) {
   }
 }
 
-// ---- MongoDB 种子数据 ----
-const mongoUri = process.env.SQLTRANSLATOR_TEST_MONGO_URI ?? 'mongodb://127.0.0.1:27017';
-let mongo;
-try {
-  mongo = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 5000 });
-  await mongo.connect();
-  const db = mongo.db('testdb');
-  await db.dropDatabase().catch(() => undefined);
-  await db.collection('users').insertMany([
-    { name: 'alice', age: 30, email: 'alice@x.com', balance: 100.5, is_active: true, birthday: new Date('1993-01-15'), address: { city: 'Beijing', zip: '100000' }, tags: ['vip', 'member'] },
-    { name: 'bob', age: 20, email: 'bob@x.com', balance: 0, is_active: false, birthday: new Date('2003-06-01'), address: { city: 'Shanghai', zip: '200000' }, tags: ['member'] },
-    { name: 'carol', age: 25, email: 'carol@x.com', balance: 50, is_active: true, birthday: new Date('1998-12-20'), address: { city: 'Shenzhen', zip: '518000' }, tags: ['vip'] },
-  ]);
-  await db.collection('orders').insertMany([
-    { user_id: 1, amount: 10.5, status: 'paid' },
-    { user_id: 1, amount: 5, status: 'pending' },
-    { user_id: 3, amount: 99, status: 'paid' },
-  ]);
-  console.log(`[init-fixtures] mongodb (${mongoUri}) 初始化完成`);
-} catch (err) {
-  console.error(`[init-fixtures] mongodb 初始化失败: ${err instanceof Error ? err.message : String(err)}`);
-  process.exitCode = 1;
-} finally {
-  if (mongo) await mongo.close().catch(() => undefined);
+// ---- MongoDB 种子数据（普通 + SSL 目标） ----
+const mongoTargets = [
+  {
+    name: 'mongodb',
+    uri: process.env.SQLTRANSLATOR_TEST_MONGO_URI ?? 'mongodb://127.0.0.1:27017',
+    options: { serverSelectionTimeoutMS: 5000 },
+  },
+  // SSL 目标：TLS + CA（证书未生成时跳过）
+  ...(caPem
+    ? [
+        {
+          name: 'mongodb-ssl',
+          uri: process.env.SQLTRANSLATOR_TEST_MONGO_SSL_URI ?? 'mongodb://127.0.0.1:27019',
+          options: {
+            serverSelectionTimeoutMS: 5000,
+            tls: true,
+            tlsCAFile: SSL_CA_PATH,
+          },
+        },
+      ]
+    : []),
+];
+
+async function seedMongo(target) {
+  let mongo;
+  try {
+    mongo = new MongoClient(target.uri, target.options);
+    await mongo.connect();
+    const db = mongo.db('testdb');
+    await db.dropDatabase().catch(() => undefined);
+    await db.collection('users').insertMany([
+      { name: 'alice', age: 30, email: 'alice@x.com', balance: 100.5, is_active: true, birthday: new Date('1993-01-15'), address: { city: 'Beijing', zip: '100000' }, tags: ['vip', 'member'] },
+      { name: 'bob', age: 20, email: 'bob@x.com', balance: 0, is_active: false, birthday: new Date('2003-06-01'), address: { city: 'Shanghai', zip: '200000' }, tags: ['member'] },
+      { name: 'carol', age: 25, email: 'carol@x.com', balance: 50, is_active: true, birthday: new Date('1998-12-20'), address: { city: 'Shenzhen', zip: '518000' }, tags: ['vip'] },
+    ]);
+    await db.collection('orders').insertMany([
+      { user_id: 1, amount: 10.5, status: 'paid' },
+      { user_id: 1, amount: 5, status: 'pending' },
+      { user_id: 3, amount: 99, status: 'paid' },
+    ]);
+    console.log(`[init-fixtures] ${target.name} (${target.uri}) 初始化完成`);
+  } catch (err) {
+    console.error(`[init-fixtures] ${target.name} 初始化失败: ${err instanceof Error ? err.message : String(err)}`);
+    process.exitCode = 1;
+  } finally {
+    if (mongo) await mongo.close().catch(() => undefined);
+  }
+}
+
+for (const target of mongoTargets) {
+  await seedMongo(target);
 }

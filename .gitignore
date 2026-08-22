@@ -4,5 +4,6 @@ coverage
 *.log
 .DS_Store
 test/fixtures/tmp
+test/fixtures/ssl
 .docs
 docs

@@ -72,10 +72,12 @@ const schema = await db.getTableSchema('users');
 ## 本地测试数据库（docker compose）
 
 ```bash
+bash scripts/gen-ssl-certs.sh  # 首次：生成 SSL 集成测试证书（test/fixtures/ssl/）
 pnpm db:up      # 启动 mysql5(33061) / mysql8(33062) / postgres(54321) / mongodb(27017)
-pnpm db:init    # 初始化种子数据（MySQL 走 utf8mb4 脚本，Mongo 注入）
+                #     + SSL 库：mysql8-ssl(33064) / postgres-ssl(54322) / mongodb-ssl(27019)
+pnpm db:init    # 初始化种子数据（MySQL 走 utf8mb4 脚本，Mongo 注入，SSL 库一并初始化）
 
-# 跑全部集成测试（含 6 种数据库：mysql5/8、mariadb、pg、mongo、mongo 副本集）
+# 跑全部集成测试（含 6 种数据库：mysql5/8、mariadb、pg、mongo、mongo 副本集 + 3 个 SSL 库）
 SQLTRANSLATOR_TEST_MYSQL=1 SQLTRANSLATOR_TEST_MYSQL5_HOST=127.0.0.1 SQLTRANSLATOR_TEST_MYSQL5_PORT=33061 \
 SQLTRANSLATOR_TEST_MYSQL5_USER=root SQLTRANSLATOR_TEST_MYSQL5_PASSWORD=root \
 SQLTRANSLATOR_TEST_MYSQL8_HOST=127.0.0.1 SQLTRANSLATOR_TEST_MYSQL8_PORT=33062 \
@@ -86,9 +88,14 @@ SQLTRANSLATOR_TEST_MARIADB_HOST=127.0.0.1 SQLTRANSLATOR_TEST_MARIADB_PORT=33063 
 SQLTRANSLATOR_TEST_MARIADB_USER=test SQLTRANSLATOR_TEST_MARIADB_PASSWORD=test SQLTRANSLATOR_TEST_MARIADB_DATABASE=testdb \
 SQLTRANSLATOR_TEST_MONGO_URI=mongodb://127.0.0.1:27017 \
 SQLTRANSLATOR_TEST_MONGO_RS_URI=mongodb://127.0.0.1:27018 \
+SQLTRANSLATOR_TEST_MYSQL8_SSL_HOST=127.0.0.1 SQLTRANSLATOR_TEST_MYSQL8_SSL_PORT=33064 \
+SQLTRANSLATOR_TEST_PG_SSL_HOST=127.0.0.1 SQLTRANSLATOR_TEST_PG_SSL_PORT=54322 \
+SQLTRANSLATOR_TEST_MONGO_SSL_URI=mongodb://127.0.0.1:27019 \
 pnpm test
 
 > 环境变量缺失时对应方言的集成用例自动跳过（describe.skipIf）；mongo 副本集用例需先 `node scripts/init-mongo-rs.mjs` 初始化
+> SSL 集成测试（test/integration/ssl.spec.ts）：三个库服务端均**强制 TLS**（MySQL `--require-secure-transport` / PG 仅 hostssl hba / Mongo `requireTLS`），
+> 既验证 SSL 连接成功（Ssl_cipher / pg_stat_ssl），也验证不带 ssl 配置时连接被拒；证书由 `scripts/gen-ssl-certs.sh` 自签生成（已 gitignore）
 ```
 
 > 国内网络镜像慢时：`MYSQL5_IMAGE=docker.m.daocloud.io/library/mysql:5.7 MYSQL8_IMAGE=docker.m.daocloud.io/library/mysql:8.0 MONGO_IMAGE=docker.m.daocloud.io/library/mongo:7 pnpm db:up`
