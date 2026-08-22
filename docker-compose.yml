@@ -93,3 +93,93 @@ services:
       interval: 5s
       timeout: 5s
       retries: 30
+
+  # ============ SSL 集成测试专用（证书由 scripts/gen-ssl-certs.sh 生成）============
+  # 先运行：bash scripts/gen-ssl-certs.sh，再 docker compose up -d
+
+  # MySQL 8 + 强制 TLS（--require-secure-transport=ON 拒绝一切非 TLS 连接），端口 33064
+  mysql8-ssl:
+    image: ${MYSQL8_SSL_IMAGE:-mysql:8.0}
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --ssl-ca=/etc/mysql/ssl/ca.pem
+      - --ssl-cert=/etc/mysql/ssl/server-cert.pem
+      - --ssl-key=/etc/mysql/ssl/server-key.pem
+      - --require-secure-transport=ON
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: testdb
+      MYSQL_USER: test
+      MYSQL_PASSWORD: test
+    ports:
+      - "33064:3306"
+    volumes:
+      - ./test/fixtures/ssl/ca.pem:/etc/mysql/ssl/ca.pem:ro
+      - ./test/fixtures/ssl/mysql8-cert.pem:/etc/mysql/ssl/server-cert.pem:ro
+      - ./test/fixtures/ssl/mysql8-key.pem:/etc/mysql/ssl/server-key.pem:ro
+      - ./test/fixtures/mysql/ssl-user.sql:/docker-entrypoint-initdb.d/02-ssl-user.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  # PostgreSQL + 强制 SSL（pg_hba 仅 hostssl 规则），端口 54322
+  # 证书经 cp 到容器内临时目录并 chown postgres，规避 bind mount 属主权限问题
+  postgres-ssl:
+    image: ${PG_SSL_IMAGE:-postgres:16-alpine}
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: testdb
+    ports:
+      - "54322:5432"
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p /tmp/pg-ssl
+        cp /var/lib/postgresql/ssl/server-cert.pem /tmp/pg-ssl/server-cert.pem
+        cp /var/lib/postgresql/ssl/server-key.pem /tmp/pg-ssl/server-key.pem
+        chown postgres:postgres /tmp/pg-ssl/*
+        chmod 600 /tmp/pg-ssl/server-key.pem
+        exec docker-entrypoint.sh postgres \
+          -c ssl=on \
+          -c ssl_cert_file=/tmp/pg-ssl/server-cert.pem \
+          -c ssl_key_file=/tmp/pg-ssl/server-key.pem \
+          -c hba_file=/etc/postgresql/pg_hba_ssl.conf
+    volumes:
+      - ./test/fixtures/ssl/postgres-cert.pem:/var/lib/postgresql/ssl/server-cert.pem:ro
+      - ./test/fixtures/ssl/postgres-key.pem:/var/lib/postgresql/ssl/server-key.pem:ro
+      - ./test/fixtures/postgresql/pg_hba_ssl.conf:/etc/postgresql/pg_hba_ssl.conf:ro
+      - ./test/fixtures/postgresql/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d testdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # MongoDB + requireTLS（非 TLS 连接一律拒绝），端口 27019
+  # tlsAllowConnectionsWithoutCertificates：仅要求服务端 TLS，不强制客户端证书（双向认证）
+  mongodb-ssl:
+    image: ${MONGO_SSL_IMAGE:-mongo:7}
+    command:
+      - mongod
+      - --tlsMode
+      - requireTLS
+      - --tlsCAFile
+      - /etc/mongo/ssl/ca.pem
+      - --tlsCertificateKeyFile
+      - /etc/mongo/ssl/mongodb.pem
+      - --tlsAllowConnectionsWithoutCertificates
+    ports:
+      - "27019:27017"
+    volumes:
+      - ./test/fixtures/ssl/ca.pem:/etc/mongo/ssl/ca.pem:ro
+      - ./test/fixtures/ssl/mongodb.pem:/etc/mongo/ssl/mongodb.pem:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--tls", "--tlsCAFile", "/etc/mongo/ssl/ca.pem", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 30

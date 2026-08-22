@@ -2,7 +2,14 @@
  * 连接配置归一化与指纹计算
  */
 
+import { createHash } from 'node:crypto';
 import type { ConnectionConfig, SslOptions } from '../types/config.js';
+
+/** 证书摘要：避免 PEM 明文进入指纹 key（缓存 key / 慢查询日志），同时保证换证书即换指纹 */
+function certDigest(s: string | undefined): string {
+  if (!s) return '';
+  return createHash('sha256').update(s).digest('hex').slice(0, 16);
+}
 
 /** 默认端口 */
 export const DEFAULT_PORTS: Record<string, number> = {
@@ -55,7 +62,9 @@ export function fingerprintConfig(config: ConnectionConfig): string {
     String(c.password ?? ''),
     String(c.schema ?? (config.type === 'postgresql' ? 'public' : '')),
     config.type === 'mariadb' ? 'mariadb' : '',
-    ssl?.enabled ? `ssl:${ssl.mode ?? 'default'}` : 'nossl',
+    ssl?.enabled
+      ? `ssl:${ssl.mode ?? 'default'}:${certDigest(ssl.ca)}:${certDigest(ssl.cert)}:${certDigest(ssl.key)}`
+      : 'nossl',
   );
 
   return parts.join('\x00');
