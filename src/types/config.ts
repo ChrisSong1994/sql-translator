@@ -126,6 +126,8 @@ export interface MysqlConfig extends BaseConfig {
   username?: string;
   password?: string;
   database: string;
+  /** 连接超时（ms，默认 15000；连接测试可放宽） */
+  connectTimeout?: number;
   /** 方言模式：'5' | '8' | 'auto'（auto = 启动时探测 VERSION()） */
   version?: '5' | '8' | 'auto';
   ssl?: SslOptions;
@@ -141,6 +143,8 @@ export interface MariadbConfig extends BaseConfig {
   username?: string;
   password?: string;
   database: string;
+  /** 连接超时（ms，默认 15000；连接测试可放宽） */
+  connectTimeout?: number;
   /** 方言模式：'10' | '11' | 'auto'（auto = 启动时探测 VERSION()） */
   version?: '10' | '11' | 'auto';
   ssl?: SslOptions;
@@ -155,6 +159,8 @@ export interface PostgresqlConfig extends BaseConfig {
   username?: string;
   password?: string;
   database: string;
+  /** 连接超时（ms，默认 15000；连接测试可放宽） */
+  connectionTimeoutMillis?: number;
   /** 默认 public */
   schema?: string;
   ssl?: SslOptions;
@@ -179,6 +185,12 @@ export interface MongodbConfig extends BaseConfig {
   database?: string;
   /** 默认 admin */
   authSource?: string;
+  /** 认证方式（SCRAM-SHA-256 / SCRAM-SHA-1 / MONGODB-X509），不填驱动默认 SCRAM */
+  authMethod?: string;
+  /** 连接超时（ms，默认 10000；连接测试可放宽） */
+  connectTimeoutMS?: number;
+  /** 服务器选择超时（ms，默认 10000；连接测试可放宽） */
+  serverSelectionTimeoutMS?: number;
   /** retryable writes（单实例不支持事务需 false，默认 false） */
   retryWrites?: boolean;
   ssl?: SslOptions;

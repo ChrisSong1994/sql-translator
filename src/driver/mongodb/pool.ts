@@ -9,32 +9,45 @@ import type { MongodbConfig } from '../../types/config.js';
 /** 由 host/port/database 拼装连接串 */
 export function buildMongoUri(config: MongodbConfig): string {
   if (config.uri) return config.uri;
-  const user = config.user || config.username;
+  // MONGODB-X509 用客户端证书认证，连接串中不携带 username/password
+  const x509 = config.authMethod === 'MONGODB-X509';
+  const user = x509 ? null : (config.user || config.username);
   const pass = config.password;
   const auth = user ? `${encodeURIComponent(user)}:${encodeURIComponent(pass ?? '')}@` : '';
   const host = config.host ?? 'localhost';
   const port = config.port ? `:${config.port}` : '';
   const db = config.database ? `/${encodeURIComponent(config.database)}` : '';
-  const authSource = user && config.authSource ? `?authSource=${encodeURIComponent(config.authSource)}` : '';
-  return `mongodb://${auth}${host}${port}${db}${authSource}`;
+  // 认证库缺省默认 admin（与 MongoDB Compass/mongosh 惯例一致）：不传 authSource 时在 admin 上认证
+  const authSource = user && (config.authSource || 'admin') ? `?authSource=${encodeURIComponent(config.authSource || 'admin')}` : '';
+  const authMechanism = config.authMethod ? `${authSource ? '&' : '?'}authMechanism=${encodeURIComponent(config.authMethod)}` : '';
+  return `mongodb://${auth}${host}${port}${db}${authSource}${authMechanism}`;
 }
 
 export function buildMongoOptions(config: MongodbConfig): Record<string, unknown> {
   const options: Record<string, unknown> = {
-    connectTimeoutMS: 10000,
-    socketTimeoutMS: 30000,
-    serverSelectionTimeoutMS: 10000,
+    // 连接/服务器选择超时可配置，默认 10s（连接测试可在测试配置中放宽）
+    connectTimeoutMS: config.connectTimeoutMS ?? 10000,
+    socketTimeoutMS: config.socketTimeoutMS ?? 30000,
+    serverSelectionTimeoutMS: config.serverSelectionTimeoutMS ?? 10000,
     // 单实例部署不支持 retryable writes（事务/会话需要），默认关闭
     retryWrites: config.retryWrites ?? false,
   };
+  // 认证方式（MONGODB-X509 / SCRAM-SHA-256 / SCRAM-SHA-1），驱动默认 SCRAM-SHA-256
+  if (config.authMethod) {
+    options.authMechanism = config.authMethod;
+  }
+  // MONGODB-X509 必须在 $external 库上认证（驱动对非 $external 的 X509 直接报错）
+  if (config.authMethod === 'MONGODB-X509' && !config.authSource) {
+    options.authSource = '$external';
+  }
   if (config.ssl?.enabled) {
     options.tls = true;
-    // mongodb driver 7.x 支持 Node TLS socket 选项（ca/cert/key/rejectUnauthorized）直接放顶层；
-    // 注意 tlsOptions 仅用于 CSFLE KMS，不能用于普通连接
-    if (config.ssl.ca) options.ca = Buffer.from(config.ssl.ca);
-    if (config.ssl.cert) options.cert = Buffer.from(config.ssl.cert);
-    if (config.ssl.key) options.key = Buffer.from(config.ssl.key);
-    options.rejectUnauthorized = config.ssl.rejectUnauthorized ?? false;
+    const tlsOptions: Record<string, unknown> = {};
+    if (config.ssl.ca) tlsOptions.ca = Buffer.from(config.ssl.ca);
+    if (config.ssl.cert) tlsOptions.cert = Buffer.from(config.ssl.cert);
+    if (config.ssl.key) tlsOptions.key = Buffer.from(config.ssl.key);
+    tlsOptions.rejectUnauthorized = config.ssl.rejectUnauthorized ?? false;
+    if (Object.keys(tlsOptions).length > 0) options.tlsOptions = tlsOptions;
   }
   return options;
 }

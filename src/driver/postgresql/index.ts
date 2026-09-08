@@ -100,7 +100,7 @@ export class PostgresqlDriver implements SqlDriver {
           password: config.password,
           database: config.database,
           ssl: buildPgSslConfig(config),
-          connectionTimeoutMillis: 5000,
+          connectionTimeoutMillis: config.connectionTimeoutMillis ?? 15000,
         },
       });
       await k.raw('SELECT 1');

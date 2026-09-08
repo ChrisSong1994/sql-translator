@@ -87,7 +87,7 @@ export class MysqlDriver implements SqlDriver {
         database: config.database,
         charset: 'utf8mb4',
         ssl: buildSslConfig(config),
-        connectTimeout: 5000,
+        connectTimeout: config.connectTimeout ?? 15000,
       });
       await connection.execute('SELECT 1');
       return { success: true, message: 'MySQL connection test successful' };
