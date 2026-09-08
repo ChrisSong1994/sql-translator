@@ -127,8 +127,28 @@ for (const [name, cfg] of [
 }
 
 // MongoDB 事务需要副本集（单实例不支持），验证实现正确报错/成功
+// 本机未跑 mongod（或未设 URI）时自动跳过，与仓库其他集成测试的“环境就绪才跑”约定一致
+async function isLocalMongoUp(): Promise<boolean> {
+  try {
+    const { MongoClient } = await import('mongodb');
+    const c = new MongoClient(
+      process.env.SQLTRANSLATOR_TEST_MONGO_URI ?? 'mongodb://127.0.0.1:27017',
+      { serverSelectionTimeoutMS: 1500 },
+    );
+    await c.db().command({ ping: 1 });
+    await c.close().catch(() => undefined);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 describe('withTransaction（MongoDB）', () => {
   test('单实例报错（副本集环境可成功）', async () => {
+    if (!(await isLocalMongoUp())) {
+      console.warn('[transaction] 本地 MongoDB 不可达，跳过单实例事务测试');
+      return;
+    }
     const db = createClient({
       type: 'mongodb',
       uri: process.env.SQLTRANSLATOR_TEST_MONGO_URI ?? 'mongodb://127.0.0.1:27017',

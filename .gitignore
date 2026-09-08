@@ -7,3 +7,4 @@ test/fixtures/tmp
 test/fixtures/ssl
 .docs
 docs
+.env.*
